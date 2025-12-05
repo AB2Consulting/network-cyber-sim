@@ -132,7 +132,7 @@ export default function RedBlueGame() {
                         <h4 className="text-sm font-bold text-blue-400 mb-2">Blue Objectives</h4>
                         <ul className="text-sm space-y-2 text-muted-foreground list-disc pl-4">
                             <li>Identify attacking IP addresses.</li>
-                            <li>Block attackers with Firewall (`firewall block <ip>`).</li>
+                            <li>Block attackers with Firewall (`firewall block &lt;ip&gt;`).</li>
                             <li>Enable IDS on servers (`ids enable`).</li>
                             <li>Patch vulnerabilities (`patch http`).</li>
                         </ul>
