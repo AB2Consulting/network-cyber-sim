@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --radius: 0.5rem;
+}
+
+.light {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+        monospace;
+}
+
+#root {
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* ReactFlow custom styles */
+/* ReactFlow custom styles */
+.react-flow__node {
+    border: none;
+    background: transparent;
+    padding: 0;
+    width: auto;
+}
+
+/* Remove default selection style as it's handled by the component */
+.react-flow__node.selected {
+    border: none;
+    box-shadow: none;
+}
+
+/* These specific overrides might need to be moved to the component or target the inner div if not working.
+   However, CustomNode handles 'compromised' via props -> classes.
+   But if these classes are added to the WRAPPER by ReactFlow based on node.className, we need to be careful.
+   NetworkGraph.jsx lines 185-189 adds classes to the node itself (wrapper).
+   So we should probably update these to target the inner div or just accept that the wrapper has no visual style.
+
+   Wait, NetworkGraph.jsx:
+   return { ...node, className: classes.join(' ') };
+
+   This applies classes to the .react-flow__node wrapper.
+   If we make the wrapper transparent/zero-padding, any border/shadow on it might still look weird if the size is different from the inner content.
+   The inner content has `min-w-[90px]`.
+   If we keep the wrapper unstyled, we need to pass these visual states down to the CustomNode component purely via data, OR style the child of these classes.
+
+   Actually, the CustomNode component ALREADY checks `data.compromised` and `selected` to apply styles (lines 21, 30 of CustomNode.jsx).
+   So we don't need these wrapper styles at all! The component handles it.
+   We can safely remove them or comment them out.
+*/
+
+/* 
+.react-flow__node.compromised {
+    border-color: #ef4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+    animation: pulse-red 2s infinite;
+}
+*/
+
+/* For ids-protected, CustomNode has its own indicator (lines 66-70).
+   So we might not need this pseudo-element style either.
+   Let's check CustomNode.jsx again.
+   Lines 66-70: {data.idsEnabled && (<span ... >🛡️</span>)}
+   Yes, it has an icon. The CSS version was likely a duplicate/backup.
+   I will comment it out to be safe and let the component handle it.
+*/
+
+/*
+.react-flow__node.ids-protected::after {
+    content: '🛡️';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 16px;
+    background: #10b981;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+*/
+
+@keyframes pulse-red {
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+    }
+
+    50% {
+        box-shadow: 0 0 30px rgba(239, 68, 68, 0.9);
+    }
+}
+
+.react-flow__edge-path {
+    stroke: hsl(var(--muted-foreground));
+    stroke-width: 2;
+}
