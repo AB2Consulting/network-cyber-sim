@@ -1,0 +1,571 @@
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import ReactFlow, {
+    MiniMap,
+    Controls,
+    Background,
+    useNodesState,
+    useEdgesState,
+    addEdge,
+    MarkerType,
+} from 'reactflow';
+{ id: 'e2-3', source: '2', target: '3', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
+{ id: 'e2-4', source: '2', target: '4', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
+{ id: 'e3-2', source: '3', target: '2', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
+{ id: 'e4-2', source: '4', target: '2', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
+{ id: 'e2-1', source: '2', target: '1', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
+];
+
+// Packet Component with color support
+const Packet = ({ x, y, blocked }) => (
+    <div
+        style={{
+            position: 'absolute',
+            left: x,
+            top: y,
+            width: '12px',
+            height: '12px',
+            backgroundColor: blocked ? '#ef4444' : '#3b82f6',
+            borderRadius: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1000,
+            boxShadow: `0 0 10px ${blocked ? '#ef4444' : '#3b82f6'}`
+        }}
+    />
+);
+
+// Helper to check if two IPs are on the same subnet
+const isSameSubnet = (ip1, ip2, mask) => {
+    if (!ip1 || !ip2 || !mask) return false;
+
+    const ipToLong = (ip) => ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+    const maskToLong = (mask) => mask.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+
+    const ip1Long = ipToLong(ip1);
+    const ip2Long = ipToLong(ip2);
+    const maskLong = maskToLong(mask);
+
+    return (ip1Long & maskLong) === (ip2Long & maskLong);
+};
+
+// Check if packet is allowed by firewall rules
+const checkFirewall = (targetNode, sourceIp, port = 'any', protocol = 'any') => {
+    const rules = targetNode.data.firewallRules || [];
+
+    if (rules.length === 0) return { allowed: true }; // No rules = allow all
+
+    // Check rules in order
+    for (const rule of rules) {
+        const ipMatch = rule.sourceIp === 'any' || rule.sourceIp === sourceIp;
+
+        // Port matching: if rule has 'any', it matches everything
+        // If packet has specific port, check if rule allows it
+        const portMatch = rule.port === 'any' ||
+            port === 'any' ||
+            rule.port === String(port);
+
+        // Protocol matching
+        const protocolMatch = rule.protocol === 'any' ||
+            protocol === 'any' ||
+            rule.protocol === protocol;
+
+        if (ipMatch && portMatch && protocolMatch) {
+            return {
+                allowed: rule.action === 'ALLOW',
+                rule: rule
+            };
+        }
+    }
+
+    // Default deny if rules exist but no match
+    return { allowed: false, rule: { action: 'DENY (implicit)', port: 'any', sourceIp: 'any' } };
+};
+
+export default function NetworkGraph() {
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const [packets, setPackets] = useState([]);
+    const [selectedNode, setSelectedNode] = useState(null);
+    const [terminalNode, setTerminalNode] = useState(null);
+    const [firewallNode, setFirewallNode] = useState(null);
+    const reactFlowWrapper = useRef(null);
+    const [reactFlowInstance, setReactFlowInstance] = useState(null);
+
+    const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+
+    const onNodeClick = useCallback((event, node) => {
+        setSelectedNode(node);
+    }, []);
+
+    const onNodeDoubleClick = useCallback((event, node) => {
+        if (node.data.type === 'pc' || node.data.type === 'router') {
+            setTerminalNode(node);
+        }
+    }, []);
+
+    const onNodeUpdate = (nodeId, newData) => {
+        setNodes((nds) => nds.map((node) => {
+            if (node.id === nodeId) {
+                return { ...node, data: newData };
+            }
+            return node;
+        }));
+        if (selectedNode && selectedNode.id === nodeId) {
+            setSelectedNode(prev => ({ ...prev, data: newData }));
+        }
+        if (firewallNode && firewallNode.id === nodeId) {
+            setFirewallNode(prev => ({ ...prev, data: newData }));
+        }
+    };
+
+    // Apply visual classes to nodes based on their state
+    useEffect(() => {
+        setNodes(nds => nds.map(node => {
+            const classes = [];
+            if (node.data.compromised) classes.push('compromised');
+            if (node.data.idsEnabled) classes.push('ids-protected');
+
+            return {
+                ...node,
+                className: classes.join(' ')
+            };
+        }));
+    }, [nodes.map(n => `${n.id}-${n.data.compromised}-${n.data.idsEnabled}`).join(',')]);
+
+    // Simulation Loop
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setPackets((currentPackets) => {
+                return currentPackets.map(packet => {
+                    if (packet.progress >= 1) return null;
+
+                    const newProgress = packet.progress + 0.02;
+
+                    const sourceNode = nodes.find(n => n.id === packet.sourceId);
+                    const targetNode = nodes.find(n => n.id === packet.targetId);
+
+                    if (!sourceNode || !targetNode) return null;
+
+                    const x = sourceNode.position.x + (targetNode.position.x - sourceNode.position.x) * newProgress;
+                    const y = sourceNode.position.y + (targetNode.position.y - sourceNode.position.y) * newProgress;
+
+                    return { ...packet, progress: newProgress, x, y };
+                }).filter(Boolean);
+            });
+        }, 16);
+
+        return () => clearInterval(interval);
+    }, [nodes]);
+
+    const findPath = (startNodeId, endNodeId) => {
+        const queue = [[startNodeId]];
+        const visited = new Set();
+        visited.add(startNodeId);
+
+        while (queue.length > 0) {
+            const path = queue.shift();
+            const node = path[path.length - 1];
+
+            if (node === endNodeId) {
+                return path;
+            }
+
+            const neighbors = edges
+                .filter(e => e.source === node || e.target === node)
+                .map(e => (e.source === node ? e.target : e.source));
+
+            for (const neighbor of neighbors) {
+                if (!visited.has(neighbor)) {
+                    visited.add(neighbor);
+                    const newPath = [...path, neighbor];
+                    queue.push(newPath);
+                }
+            }
+        }
+        return null;
+    };
+
+    const sendPacket = (sourceId, targetId, port = 'any', protocol = 'any', checkFw = true) => {
+        const sourceNode = nodes.find(n => n.id === sourceId);
+        const targetNode = nodes.find(n => n.id === targetId);
+
+        if (!sourceNode || !targetNode) return { success: false, reason: 'Node not found' };
+
+        // L3 Check (Subnet)
+        const isSwitch = (n) => n.data.type === 'switch';
+        if (!isSwitch(sourceNode) && !isSwitch(targetNode)) {
+            if (!isSameSubnet(sourceNode.data.ip, targetNode.data.ip, sourceNode.data.subnet)) {
+                console.log(`Destination Unreachable! ${sourceNode.data.ip} and ${targetNode.data.ip} are on different subnets.`);
+                return { success: false, reason: 'Different subnets' };
+            }
+        }
+
+        // Firewall Check - but still show animation
+        let blocked = false;
+        let fwRule = null;
+        if (checkFw) {
+            const fwCheck = checkFirewall(targetNode, sourceNode.data.ip, port, protocol);
+            if (!fwCheck.allowed) {
+                blocked = true;
+                fwRule = fwCheck.rule;
+            }
+        }
+
+        const path = findPath(sourceId, targetId);
+
+        if (path) {
+            path.forEach((nodeId, index) => {
+                if (index < path.length - 1) {
+                    const nextNodeId = path[index + 1];
+                    setTimeout(() => {
+                        setPackets(prev => [...prev, {
+                            id: Date.now() + index,
+                            sourceId: nodeId,
+                            targetId: nextNodeId,
+                            progress: 0,
+                            x: 0,
+                            y: 0,
+                            blocked: blocked
+                        }]);
+                    }, index * 800);
+                }
+            });
+
+            // Return blocked status
+            if (blocked) {
+                return { success: false, reason: 'Blocked by firewall', rule: fwRule };
+            }
+            return { success: true };
+        } else {
+            return { success: false, reason: 'No route to host' };
+        }
+    };
+
+    // Helper to add security log
+    const addSecurityLog = (nodeId, message, severity = 'info') => {
+        setNodes(nds => nds.map(n => {
+            if (n.id === nodeId) {
+                const timestamp = new Date().toLocaleTimeString();
+                const log = `[${timestamp}] [${severity.toUpperCase()}] ${message}`;
+                return {
+                    ...n,
+                    data: {
+                        ...n.data,
+                        securityLogs: [...(n.data.securityLogs || []), log].slice(-50) // Keep last 50 logs
+                    }
+                };
+            }
+            return n;
+        }));
+    };
+
+    const handleTerminalCommand = async (command, arg, arg2) => {
+        if (command === 'ping') {
+            const targetIp = arg;
+            const targetNode = nodes.find(n => n.data.ip === targetIp);
+
+            if (targetNode) {
+                const result = sendPacket(terminalNode.id, targetNode.id, 'any', 'any', true);
+                if (result.success) {
+                    return `Reply from ${targetIp}: bytes=32 time=10ms TTL=64`;
+                } else if (result.reason === 'Blocked by firewall') {
+                    return `Request timed out.\n(Blocked by firewall: ${result.rule.action} port ${result.rule.port} from ${result.rule.sourceIp})`;
+                } else {
+                    return 'Request timed out.';
+                }
+            } else {
+                return 'Request timed out.';
+            }
+        } else if (command === 'nmap') {
+            const targetIp = arg;
+            const targetNode = nodes.find(n => n.data.ip === targetIp);
+
+            if (targetNode) {
+                sendPacket(terminalNode.id, targetNode.id, 'any', 'tcp', false);
+                await new Promise(r => setTimeout(r, 500));
+                sendPacket(terminalNode.id, targetNode.id, 'any', 'tcp', false);
+                await new Promise(r => setTimeout(r, 1000));
+
+                const openPorts = targetNode.data.ports || [];
+                if (openPorts.length === 0) {
+                    return `All 1000 scanned ports on ${targetIp} are closed.`;
+                }
+
+                return `
+PORT    STATE SERVICE
+${openPorts.map(p => `${p}/tcp  open  ${p === 80 ? 'http' : p === 443 ? 'https' : p === 22 ? 'ssh' : 'unknown'}`).join('\n')}
+`;
+            } else {
+                return `Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn`;
+            }
+        }
+        // RED TEAM COMMANDS
+        else if (command === 'exploit') {
+            const service = arg;
+            const targetIp = arg2;
+            const targetNode = nodes.find(n => n.data.ip === targetIp);
+
+            if (!targetNode) return `Host ${targetIp} not found.`;
+            if (!service) return 'Usage: exploit <service> <target_ip>\nServices: ssh, http, ftp, smb';
+
+            const servicePortMap = { ssh: 22, http: 80, https: 443, ftp: 21, smb: 445 };
+            const port = servicePortMap[service];
+
+            // Check if service is running
+            if (!targetNode.data.ports.includes(port)) {
+                return `Service ${service} is not running on ${targetIp}`;
+            }
+
+            // Check if vulnerable
+            if (!targetNode.data.vulnerabilities.includes(service)) {
+                return `${targetIp} is not vulnerable to ${service} exploit (patched or not vulnerable)`;
+            }
+
+            // Check firewall
+            const fwCheck = checkFirewall(targetNode, terminalNode.data.ip, port, 'tcp');
+            if (!fwCheck.allowed) {
+                return `Exploit blocked by firewall on ${targetIp}`;
+            }
+
+            // Success! Compromise the node
+            setNodes(nds => nds.map(n => {
+                if (n.id === targetNode.id) {
+                    return { ...n, data: { ...n.data, compromised: true } };
+                }
+                return n;
+            }));
+
+            addSecurityLog(targetNode.id, `COMPROMISED via ${service} exploit from ${terminalNode.data.ip}`, 'critical');
+            if (targetNode.data.idsEnabled) {
+                addSecurityLog(targetNode.id, `IDS ALERT: Exploit attempt detected from ${terminalNode.data.ip}`, 'warning');
+            }
+
+            sendPacket(terminalNode.id, targetNode.id, port, 'tcp', false);
+            await new Promise(r => setTimeout(r, 1000));
+
+            return `[+] Exploit successful!\n[+] ${targetIp} has been compromised\n[+] You now have access to ${targetNode.data.label}`;
+        }
+        else if (command === 'ddos') {
+            const targetIp = arg;
+            const targetNode = nodes.find(n => n.data.ip === targetIp);
+
+            if (!targetNode) return `Host ${targetIp} not found.`;
+
+            // Send rapid packet bursts
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    sendPacket(terminalNode.id, targetNode.id, 'any', 'tcp', false);
+                }, i * 100);
+            }
+
+            addSecurityLog(targetNode.id, `DDoS attack from ${terminalNode.data.ip}`, 'critical');
+            if (targetNode.data.idsEnabled) {
+                addSecurityLog(targetNode.id, `IDS ALERT: DDoS attack detected from ${terminalNode.data.ip}`, 'warning');
+            }
+
+            return `[+] DDoS attack launched against ${targetIp}\n[+] Flooding target with packets...`;
+        }
+        else if (command === 'bruteforce') {
+            const service = arg;
+            const targetIp = arg2;
+            const targetNode = nodes.find(n => n.data.ip === targetIp);
+
+            if (!targetNode) return `Host ${targetIp} not found.`;
+            if (service !== 'ssh') return 'Usage: bruteforce ssh <target_ip>';
+
+            const strength = targetNode.data.passwordStrength;
+            const successRate = { weak: 0.8, medium: 0.4, strong: 0.1 };
+            const success = Math.random() < successRate[strength];
+
+            await new Promise(r => setTimeout(r, 2000)); // Simulate brute force time
+
+            if (success) {
+                setNodes(nds => nds.map(n => {
+                    if (n.id === targetNode.id) {
+                        return { ...n, data: { ...n.data, compromised: true } };
+                    }
+                    return n;
+                }));
+                addSecurityLog(targetNode.id, `SSH brute force successful from ${terminalNode.data.ip}`, 'critical');
+                return `[+] Password cracked!\n[+] ${targetIp} has been compromised\n[+] Credentials: root:password123`;
+            } else {
+                addSecurityLog(targetNode.id, `Failed SSH brute force attempt from ${terminalNode.data.ip}`, 'warning');
+                return `[-] Brute force failed. Password too strong or account locked.`;
+            }
+        }
+        else if (command === 'sniff') {
+            // Capture packets on the network
+            const subnet = terminalNode.data.subnet;
+            const attackerIp = terminalNode.data.ip;
+
+            const sameSubnetNodes = nodes.filter(n =>
+                n.data.ip && isSameSubnet(attackerIp, n.data.ip, subnet)
+            );
+
+            if (sameSubnetNodes.length <= 1) {
+                return 'No traffic detected on this network segment.';
+            }
+
+            return `[+] Packet sniffer activated\n[+] Capturing traffic on ${subnet}...\n\nCaptured packets:\n${sameSubnetNodes.slice(0, 3).map(n => `  ${n.data.ip} -> ${n.data.label}: HTTP GET /admin`).join('\n')}`;
+        }
+        // BLUE TEAM COMMANDS
+        else if (command === 'ids') {
+            const action = arg;
+
+            if (action === 'enable') {
+                setNodes(nds => nds.map(n => {
+                    if (n.id === terminalNode.id) {
+                        return { ...n, data: { ...n.data, idsEnabled: true } };
+                    }
+                    return n;
+                }));
+                addSecurityLog(terminalNode.id, 'IDS enabled', 'info');
+                return '[+] Intrusion Detection System enabled\n[+] Monitoring for suspicious activity...';
+            } else if (action === 'disable') {
+                setNodes(nds => nds.map(n => {
+                    if (n.id === terminalNode.id) {
+                        return { ...n, data: { ...n.data, idsEnabled: false } };
+                    }
+                    return n;
+                }));
+                return '[-] IDS disabled';
+            } else {
+                return `Usage: ids <enable|disable>\nCurrent status: ${terminalNode.data.idsEnabled ? 'ENABLED' : 'DISABLED'}`;
+            }
+        }
+        else if (command === 'patch') {
+            const service = arg;
+
+            if (!service) {
+                return `Usage: patch <service>\nVulnerable services: ${terminalNode.data.vulnerabilities.join(', ') || 'none'}`;
+            }
+
+            if (!terminalNode.data.vulnerabilities.includes(service)) {
+                return `${service} is not vulnerable or already patched.`;
+            }
+
+            await new Promise(r => setTimeout(r, 1500)); // Simulate patching time
+
+            setNodes(nds => nds.map(n => {
+                if (n.id === terminalNode.id) {
+                    return {
+                        ...n,
+                        data: {
+                            ...n.data,
+                            vulnerabilities: n.data.vulnerabilities.filter(v => v !== service)
+                        }
+                    };
+                }
+                return n;
+            }));
+
+            addSecurityLog(terminalNode.id, `Patched ${service} vulnerability`, 'info');
+            return `[+] ${service} vulnerability patched successfully\n[+] System is now protected against ${service} exploits`;
+        }
+        else if (command === 'logs') {
+            const logs = terminalNode.data.securityLogs || [];
+
+            if (logs.length === 0) {
+                return 'No security events logged.';
+            }
+
+            return `Security Event Log:\n${'='.repeat(50)}\n${logs.slice(-10).join('\n')}`;
+        }
+        else if (command === 'firewall') {
+            const action = arg; // block or allow
+            const targetIp = arg2;
+
+            if (!action || !targetIp) {
+                return 'Usage: firewall <block|allow> <ip>';
+            }
+
+            const newRule = {
+                id: Date.now(),
+                action: action === 'block' ? 'DENY' : 'ALLOW',
+                protocol: 'any',
+                port: 'any',
+                sourceIp: targetIp
+            };
+
+            setNodes(nds => nds.map(n => {
+                if (n.id === terminalNode.id) {
+                    return {
+                        ...n,
+                        data: {
+                            ...n.data,
+                            firewallRules: [...n.data.firewallRules, newRule]
+                        }
+                    };
+                }
+                return n;
+            }));
+
+            addSecurityLog(terminalNode.id, `Firewall rule added: ${newRule.action} ${targetIp}`, 'info');
+            return `[+] Firewall rule added: ${newRule.action} all traffic from ${targetIp}`;
+        }
+    };
+
+    return (
+        <div className="flex flex-col h-full w-full gap-4 relative">
+            {selectedNode && (
+                <NodeDetails node={selectedNode} onUpdate={onNodeUpdate} />
+            )}
+
+            {terminalNode && (
+                <Terminal
+                    node={terminalNode}
+                    onCommand={handleTerminalCommand}
+                    onClose={() => setTerminalNode(null)}
+                />
+            )}
+
+            {firewallNode && (
+                <FirewallConfig
+                    node={firewallNode}
+                    onUpdate={onNodeUpdate}
+                    onClose={() => setFirewallNode(null)}
+                />
+            )}
+
+            <div className="flex gap-2 p-2 bg-card border rounded-md">
+                <div className="text-sm text-muted-foreground p-2">
+                    Double-click: Terminal | Single-click + Firewall button: Configure rules
+                </div>
+                <button
+                    onClick={() => selectedNode && setFirewallNode(selectedNode)}
+                    disabled={!selectedNode}
+                    className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    🛡️ Configure Firewall
+                </button>
+            </div>
+
+            <div className="h-[600px] w-full border rounded-lg bg-background relative" ref={reactFlowWrapper}>
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onNodeClick={onNodeClick}
+                    onNodeDoubleClick={onNodeDoubleClick}
+                    onInit={setReactFlowInstance}
+                    fitView
+                >
+                    <Controls />
+                    <MiniMap />
+                    <Background variant="dots" gap={12} size={1} />
+                </ReactFlow>
+
+                {/* Render Packets Layer */}
+                <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+                    {reactFlowInstance && packets.map(packet => {
+                        const { x, y, zoom } = reactFlowInstance.getViewport();
+                        const screenX = packet.x * zoom + x;
+                        const screenY = packet.y * zoom + y;
+                        return <Packet key={packet.id} x={screenX} y={screenY} blocked={packet.blocked} />;
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
