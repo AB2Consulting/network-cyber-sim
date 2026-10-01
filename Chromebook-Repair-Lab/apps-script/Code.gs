@@ -66,33 +66,33 @@ function logAction(studentId, actionType) {
  * Checks whether a student is currently clocked in.
  * Used by the clock page to auto-detect IN vs OUT on badge scan.
  * @param {string} studentId
- * @returns {{ isIn: boolean, studentName: string }}
+ * @returns {Object} - { isIn: boolean, studentName: string }
  */
 function getStudentStatus(studentId) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const studentName = getStudentName(ss, studentId);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var studentName = getStudentName(ss, studentId);
   if (!studentName) throw new Error('ID Not Found in Roster');
 
-  const logSheet = getLogSheet(ss);
-  if (!logSheet) return { isIn: false, studentName };
+  var logSheet = getLogSheet(ss);
+  if (!logSheet) return { isIn: false, studentName: studentName };
 
-  const today = new Date();
-  const data  = logSheet.getDataRange().getValues();
+  var today = new Date();
+  var data  = logSheet.getDataRange().getValues();
   data.shift(); // remove header row
 
-  let isIn = false;
-  data.forEach(row => {
-    const time = new Date(row[0]);
+  var isIn = false;
+  data.forEach(function(row) {
+    var time = new Date(row[0]);
     if (isNaN(time.getTime())) return;
-    const diffMs = today.getTime() - time.getTime();
-    if (diffMs < -300000 || diffMs > 72000000) return; // outside 20-hour window
+    var diffMs = today.getTime() - time.getTime();
+    if (diffMs < -300000 || diffMs > 72000000) return;
     if (row[1] !== studentName) return;
-    const action = String(row[3]).trim().toUpperCase();
+    var action = String(row[3]).trim().toUpperCase();
     if (action === 'IN')  isIn = true;
     if (action === 'OUT') isIn = false;
   });
 
-  return { isIn, studentName };
+  return { isIn: isIn, studentName: studentName };
 }
 
 /**
