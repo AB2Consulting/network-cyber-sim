@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Repair Lab — Lab Management</title>
+  <style>
+    :root {
+      --bg: #050508;
+      --card: #0d0d18;
+      --border: rgba(0,243,255,0.22);
+      --cyan: #00f3ff;
+      --pink: #ff00ff;
+      --green: #00ff88;
+      --yellow: #ffcc00;
+      --text: #e8e8ff;
+      --muted: rgba(255,255,255,0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 20px 16px 40px;
+    }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 {
+      font-size: 1.5em; letter-spacing: 4px;
+      text-transform: uppercase; color: var(--cyan);
+      text-shadow: 0 0 14px var(--cyan);
+    }
+    header p { margin-top: 6px; font-size: 0.8em; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+    /* ── Tab Bar ── */
+    .tab-bar {
+      display: flex; gap: 0; max-width: 1200px; margin: 0 auto 24px;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .tab-btn {
+      flex: 1; padding: 14px 20px;
+      background: transparent; border: none;
+      color: var(--muted); font-size: 0.8em; font-weight: 700;
+      letter-spacing: 3px; text-transform: uppercase; cursor: pointer;
+      transition: all 0.2s; border-right: 1px solid var(--border);
+    }
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn:hover { background: rgba(0,243,255,0.05); color: var(--text); }
+    .tab-btn.active {
+      background: rgba(0,243,255,0.1); color: var(--cyan);
+      box-shadow: inset 0 -3px 0 var(--cyan);
+    }
+
+    /* ── Tab Panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Layout Grid ── */
+    .layout {
+      display: grid;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      align-items: start;
+    }
+    .layout-tickets  { grid-template-columns: 1fr 1fr; }
+    .layout-loaners  { grid-template-columns: 360px 1fr; }
+    @media (max-width: 750px) {
+      .layout-tickets, .layout-loaners { grid-template-columns: 1fr; }
+    }
+
+    /* ── Panels ── */
+    .panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 24px;
+    }
+    .panel-title {
+      font-size: 0.68em; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--cyan); margin-bottom: 20px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Form Fields ── */
+    .field { margin-bottom: 16px; }
+    label {
+      display: block; font-size: 0.72em; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+    select, input[type="text"], textarea {
+      width: 100%; padding: 11px 13px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 0.93em; outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    select:focus, input[type="text"]:focus, textarea:focus {
+      border-color: var(--cyan); box-shadow: 0 0 14px rgba(0,243,255,0.18);
+    }
+    select { cursor: pointer; }
+    textarea { resize: vertical; min-height: 76px; font-family: inherit; }
+
+    /* Fix type radios */
+    .radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .radio-label {
+      display: flex; align-items: center; gap: 9px;
+      padding: 10px 12px; border: 1px solid var(--border);
+      border-radius: 6px; cursor: pointer; transition: all 0.2s;
+      font-size: 0.9em; color: var(--text);
+    }
+    .radio-label input { accent-color: var(--cyan); width: 15px; height: 15px; flex-shrink: 0; }
+    .radio-label:has(input:checked) {
+      border-color: var(--cyan); background: rgba(0,243,255,0.08); color: var(--cyan);
+    }
+    #ticket-desc-field { display: none; }
+
+    /* Buttons */
+    .submit-btn {
+      width: 100%; padding: 13px;
+      border-radius: 6px; background: transparent;
+      font-size: 0.88em; font-weight: 700;
+      letter-spacing: 3px; text-transform: uppercase;
+      cursor: pointer; transition: all 0.25s; margin-top: 6px;
+    }
+    .btn-cyan  { border: 2px solid var(--cyan);  color: var(--cyan); }
+    .btn-cyan:hover  { background: var(--cyan);  color: #000; box-shadow: 0 0 22px rgba(0,243,255,0.4); }
+    .btn-green { border: 2px solid var(--green); color: var(--green); }
+    .btn-green:hover { background: var(--green); color: #000; box-shadow: 0 0 22px rgba(0,255,136,0.4); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Feedback */
+    .feedback {
+      margin-top: 13px; padding: 11px 14px; border-radius: 6px;
+      font-size: 0.82em; text-align: center; display: none; letter-spacing: 1px;
+    }
+    .feedback.success {
+      display: block; background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.3); color: var(--green);
+    }
+    .feedback.error {
+      display: block; background: rgba(255,0,80,0.08);
+      border: 1px solid rgba(255,0,80,0.3); color: var(--pink);
+    }
+
+    /* ── Ticket Cards ── */
+    .ticket-list { display: flex; flex-direction: column; gap: 11px; }
+    .ticket-card {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 8px; padding: 13px 15px;
+    }
+    .ticket-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 7px;
+    }
+    .ticket-id { font-size: 0.7em; letter-spacing: 2px; color: var(--cyan); font-weight: 700; }
+    .badge {
+      font-size: 0.65em; padding: 3px 10px; border-radius: 20px;
+      font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    }
+    .badge.open        { background: rgba(0,243,255,0.15); color: var(--cyan); }
+    .badge.in-progress { background: rgba(255,204,0,0.15); color: var(--yellow); }
+    .ticket-meta { font-size: 0.78em; color: var(--muted); margin-bottom: 4px; }
+    .ticket-fix  { font-size: 0.84em; color: var(--text); }
+    .ticket-actions { margin-top: 9px; display: flex; gap: 7px; }
+    .ticket-btn {
+      flex: 1; padding: 7px; font-size: 0.7em; letter-spacing: 1px;
+      text-transform: uppercase; border-radius: 4px; cursor: pointer;
+      font-weight: 600; transition: all 0.2s; border: 1px solid; background: transparent;
+    }
+    .btn-progress { border-color: var(--yellow); color: var(--yellow); }
+    .btn-progress:hover { background: var(--yellow); color: #000; }
+    .btn-close    { border-color: var(--pink); color: var(--pink); }
+    .btn-close:hover { background: var(--pink); color: #000; }
+
+    /* ── Loaner Table ── */
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84em; }
+    th {
+      text-align: left; font-size: 0.65em; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--muted);
+      padding: 7px 11px; border-bottom: 1px solid var(--border);
+    }
+    td { padding: 11px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .asset-tag { font-family: 'Courier New', monospace; color: var(--cyan); font-weight: 700; letter-spacing: 1px; }
+    .status-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .status-badge.checked-out { background: rgba(255,204,0,0.12); color: var(--yellow); border: 1px solid rgba(255,204,0,0.3); }
+    .return-btn {
+      padding: 5px 13px; font-size: 0.72em; letter-spacing: 1px;
+      text-transform: uppercase; border-radius: 4px; cursor: pointer;
+      font-weight: 600; border: 1px solid var(--pink); color: var(--pink);
+      background: transparent; transition: all 0.2s; white-space: nowrap;
+    }
+    .return-btn:hover { background: var(--pink); color: #000; }
+
+    .scan-hint { font-size: 0.7em; color: var(--muted); margin-top: 5px; letter-spacing: 1px; }
+    .empty-msg { text-align: center; padding: 28px; color: var(--muted); font-size: 0.85em; letter-spacing: 2px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Repair Lab</h1>
+    <p>Lab Management</p>
+  </header>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tickets', this)">🎫 Tickets</button>
+    <button class="tab-btn"        onclick="switchTab('loaners', this)">💻 Loaners</button>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       TAB: TICKETS
+  ══════════════════════════════════════ -->
+  <div id="tab-tickets" class="tab-panel active">
+    <div class="layout layout-tickets">
+
+      <!-- Create Ticket -->
+      <div class="panel">
+        <div class="panel-title">New Ticket</div>
+
+        <div class="field">
+          <label>Assigned Technician</label>
+          <select id="technician">
+            <option value="">Loading active students…</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Customer Name</label>
+          <input type="text" id="customerName" placeholder="Full name" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>Customer Student ID</label>
+          <input type="text" id="customerId" placeholder="ID number" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>Type of Fix</label>
+          <div class="radio-group">
+            <label class="radio-label"><input type="radio" name="fixType" value="Screen" />    Screen</label>
+            <label class="radio-label"><input type="radio" name="fixType" value="Battery" />   Battery</label>
+            <label class="radio-label"><input type="radio" name="fixType" value="Charger" />   Charger</label>
+            <label class="radio-label"><input type="radio" name="fixType" value="Other" />     Other</label>
+          </div>
+        </div>
+        <div class="field" id="ticket-desc-field">
+          <label>Please describe the issue</label>
+          <textarea id="description" placeholder="Describe the problem…"></textarea>
+        </div>
+
+        <button class="submit-btn btn-cyan" id="submitTicketBtn" onclick="submitTicket()">Create Ticket</button>
+        <div id="ticket-feedback" class="feedback"></div>
+      </div>
+
+      <!-- Open Tickets -->
+      <div class="panel">
+        <div class="panel-title">Open Tickets</div>
+        <div id="ticket-list" class="ticket-list">
+          <div class="empty-msg">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       TAB: LOANERS
+  ══════════════════════════════════════ -->
+  <div id="tab-loaners" class="tab-panel">
+    <div class="layout layout-loaners">
+
+      <!-- Assign Loaner -->
+      <div class="panel">
+        <div class="panel-title">Assign Loaner</div>
+
+        <div class="field">
+          <label>Asset Tag</label>
+          <input type="text" id="assetTag" placeholder="Scan or type asset tag" autocomplete="off" />
+          <div class="scan-hint">📷 Scan barcode or type the asset tag manually</div>
+        </div>
+        <div class="field">
+          <label>Customer Name</label>
+          <input type="text" id="custName" placeholder="Full name" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>Customer Student ID</label>
+          <input type="text" id="custId" placeholder="Student ID" autocomplete="off" />
+        </div>
+
+        <button class="submit-btn btn-green" id="assignBtn" onclick="assignLoaner()">Assign Loaner</button>
+        <div id="loaner-feedback" class="feedback"></div>
+      </div>
+
+      <!-- Active Loaners Table -->
+      <div class="panel">
+        <div class="panel-title">Active Loaners</div>
+        <div class="table-wrapper">
+          <div id="loaner-table-wrap">
+            <div class="empty-msg">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════
+    //  TAB SWITCHING
+    // ══════════════════════════════════════
+    function switchTab(name, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      btn.classList.add('active');
+
+      // Focus asset tag field when switching to Loaners
+      if (name === 'loaners') setTimeout(() => document.getElementById('assetTag').focus(), 50);
+    }
+
+    // ══════════════════════════════════════
+    //  TICKETS
+    // ══════════════════════════════════════
+    document.querySelectorAll('input[name="fixType"]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('ticket-desc-field').style.display =
+          (r.value === 'Other' && r.checked) ? 'block' : 'none';
+      });
+    });
+
+    function loadTechnicians() {
+      google.script.run
+        .withSuccessHandler(names => {
+          const sel = document.getElementById('technician');
+          if (!names || names.length === 0) {
+            sel.innerHTML = '<option value="">No students clocked in</option>';
+            return;
+          }
+          sel.innerHTML = '<option value="">Select technician…</option>' +
+            names.map(n => `<option value="${n}">${n}</option>`).join('');
+        })
+        .withFailureHandler(() => {
+          document.getElementById('technician').innerHTML = '<option value="">Error loading — refresh page</option>';
+        })
+        .getActiveStudents();
+    }
+
+    function submitTicket() {
+      const tech = document.getElementById('technician').value.trim();
+      const name = document.getElementById('customerName').value.trim();
+      const id   = document.getElementById('customerId').value.trim();
+      const fix  = document.querySelector('input[name="fixType"]:checked');
+
+      if (!tech || !name || !id || !fix) {
+        showFeedback('ticket-feedback', 'Please fill out all required fields.', 'error');
+        return;
+      }
+
+      const desc = fix.value === 'Other' ? document.getElementById('description').value.trim() : '';
+      const btn  = document.getElementById('submitTicketBtn');
+      btn.disabled = true; btn.textContent = 'Creating…';
+
+      google.script.run
+        .withSuccessHandler(res => {
+          showFeedback('ticket-feedback', '✓ ' + res.message, 'success');
+          btn.disabled = false; btn.textContent = 'Create Ticket';
+          document.getElementById('customerName').value = '';
+          document.getElementById('customerId').value   = '';
+          document.getElementById('description').value  = '';
+          document.querySelectorAll('input[name="fixType"]').forEach(r => r.checked = false);
+          document.getElementById('ticket-desc-field').style.display = 'none';
+          loadTickets();
+        })
+        .withFailureHandler(err => {
+          showFeedback('ticket-feedback', 'Error: ' + err.message, 'error');
+          btn.disabled = false; btn.textContent = 'Create Ticket';
+        })
+        .createTicket({ technician: tech, customerName: name, customerId: id, fixType: fix.value, description: desc });
+    }
+
+    function loadTickets() {
+      google.script.run
+        .withSuccessHandler(renderTickets)
+        .withFailureHandler(err => {
+          document.getElementById('ticket-list').innerHTML =
+            `<div class="empty-msg" style="color:#ff6666;">Error: ${err.message}</div>`;
+        })
+        .getOpenTickets();
+    }
+
+    function renderTickets(tickets) {
+      const list = document.getElementById('ticket-list');
+      if (!tickets || tickets.length === 0) {
+        list.innerHTML = '<div class="empty-msg">No open tickets — great job! ✓</div>';
+        return;
+      }
+      list.innerHTML = tickets.map(t => {
+        const badgeClass = t.status.toLowerCase().replace(' ', '-');
+        const date = t.timestamp ? new Date(t.timestamp).toLocaleDateString() : '—';
+        return `<div class="ticket-card">
+          <div class="ticket-header">
+            <span class="ticket-id">${t.ticketId}</span>
+            <span class="badge ${badgeClass}">${t.status}</span>
+          </div>
+          <div class="ticket-meta">${date} · Tech: ${t.technician}</div>
+          <div class="ticket-fix">${t.customerName} — ${t.fixType}${t.description ? ': ' + t.description : ''}</div>
+          <div class="ticket-actions">
+            ${t.status === 'Open' ? `<button class="ticket-btn btn-progress" onclick="changeStatus('${t.ticketId}','In Progress')">In Progress</button>` : ''}
+            <button class="ticket-btn btn-close" onclick="changeStatus('${t.ticketId}','Closed')">Close</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function changeStatus(ticketId, newStatus) {
+      google.script.run
+        .withSuccessHandler(() => loadTickets())
+        .withFailureHandler(err => alert('Error: ' + err.message))
+        .updateTicketStatus(ticketId, newStatus);
+    }
+
+    // ══════════════════════════════════════
+    //  LOANERS
+    // ══════════════════════════════════════
+    function assignLoaner() {
+      const tag  = document.getElementById('assetTag').value.trim();
+      const name = document.getElementById('custName').value.trim();
+      const id   = document.getElementById('custId').value.trim();
+
+      if (!tag || !name || !id) {
+        showFeedback('loaner-feedback', 'All fields are required.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('assignBtn');
+      btn.disabled = true; btn.textContent = 'Assigning…';
+
+      google.script.run
+        .withSuccessHandler(res => {
+          showFeedback('loaner-feedback', '✓ ' + res.message, 'success');
+          document.getElementById('assetTag').value = '';
+          document.getElementById('custName').value  = '';
+          document.getElementById('custId').value    = '';
+          document.getElementById('assetTag').focus();
+          btn.disabled = false; btn.textContent = 'Assign Loaner';
+          loadLoaners();
+        })
+        .withFailureHandler(err => {
+          showFeedback('loaner-feedback', 'Error: ' + err.message, 'error');
+          btn.disabled = false; btn.textContent = 'Assign Loaner';
+        })
+        .assignLoaner(tag, name, id);
+    }
+
+    function loadLoaners() {
+      google.script.run
+        .withSuccessHandler(renderLoaners)
+        .withFailureHandler(err => {
+          document.getElementById('loaner-table-wrap').innerHTML =
+            `<div class="empty-msg" style="color:#ff6666;">Error: ${err.message}</div>`;
+        })
+        .getAllLoaners();
+    }
+
+    function renderLoaners(loaners) {
+      const wrap = document.getElementById('loaner-table-wrap');
+      const active = (loaners || []).filter(l => l.status && l.status.toLowerCase() === 'checked out');
+
+      if (active.length === 0) {
+        wrap.innerHTML = '<div class="empty-msg">No loaners currently checked out ✓</div>';
+        return;
+      }
+
+      const rows = active.map(l => {
+        const out = l.checkoutTime
+          ? new Date(l.checkoutTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '—';
+        return `<tr>
+          <td><span class="asset-tag">${l.assetTag}</span></td>
+          <td>${l.assignedName}</td>
+          <td>${l.assignedId}</td>
+          <td>${out}</td>
+          <td><span class="status-badge checked-out">Out</span></td>
+          <td><button class="return-btn" onclick="returnLoaner('${l.assetTag}')">Return</button></td>
+        </tr>`;
+      }).join('');
+
+      wrap.innerHTML = `<table>
+        <thead><tr>
+          <th>Asset Tag</th><th>Customer</th><th>ID</th><th>Checked Out</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
+    function returnLoaner(assetTag) {
+      if (!confirm(`Mark ${assetTag} as returned?`)) return;
+      google.script.run
+        .withSuccessHandler(() => loadLoaners())
+        .withFailureHandler(err => alert('Error: ' + err.message))
+        .returnLoaner(assetTag);
+    }
+
+    // ══════════════════════════════════════
+    //  SHARED HELPERS
+    // ══════════════════════════════════════
+    function showFeedback(elId, msg, type) {
+      const fb = document.getElementById(elId);
+      fb.textContent = msg;
+      fb.className   = 'feedback ' + type;
+      if (type === 'success') setTimeout(() => { fb.className = 'feedback'; fb.textContent = ''; }, 5000);
+    }
+
+    // ── Init ──
+    loadTechnicians();
+    loadTickets();
+    loadLoaners();
+    setInterval(loadTickets, 30000);
+    setInterval(loadLoaners, 30000);
+  </script>
+</body>
+</html>

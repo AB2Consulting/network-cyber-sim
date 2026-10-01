@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: #0a0a0a;
+            --primary-cyan: #00f3ff;
+            --primary-pink: #ff00ff;
+            --text-color: #ffffff;
+            --glow-strength: 0 0 10px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .cyber-container {
+            background-color: var(--card-bg);
+            border: 2px solid var(--primary-cyan);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2), inset 0 0 20px rgba(0, 243, 255, 0.1);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+        }
+
+        .cyber-container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--primary-cyan), transparent, var(--primary-pink));
+            z-index: -1;
+            border-radius: 12px;
+            opacity: 0.5;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--primary-cyan);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--primary-cyan);
+            color: white;
+            font-size: 1.1em;
+            outline: none;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .cyber-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-in {
+            background: transparent;
+            border: 2px solid var(--primary-cyan);
+            color: var(--primary-cyan);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .btn-in:hover {
+            background: var(--primary-cyan);
+            color: black;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+        }
+
+        .btn-out {
+            background: transparent;
+            border: 2px solid var(--primary-pink);
+            color: var(--primary-pink);
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.2);
+        }
+
+        .btn-out:hover {
+            background: var(--primary-pink);
+            color: black;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.6);
+        }
+
+        #status {
+            margin-top: 20px;
+            height: 20px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        /* Scanline effect */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.3) 51%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.3;
+        }
+
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scanline"></div>
+
+    <div class="cyber-container">
+        <h1>Cyber Access</h1>
+
+        <input type="text" id="studentId" placeholder="Enter Agent ID" autocomplete="off" />
+
+        <div class="btn-group">
+            <button class="cyber-btn btn-in" onclick="handleClock('IN')">Clock In</button>
+            <button class="cyber-btn btn-out" onclick="handleClock('OUT')">Clock Out</button>
+        </div>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const idInput = document.getElementById('studentId');
+        const statusDiv = document.getElementById('status');
+        const container = document.querySelector('.cyber-container');
+
+        // Autobind Enter key to Clock In
+        idInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                handleClock('IN');
+            }
+        });
+
+        // Auto-focus on load and keep focus
+        window.onload = () => idInput.focus();
+        document.body.addEventListener('click', () => idInput.focus());
+
+        function handleClock(action) {
+            const id = idInput.value.trim();
+
+            if (!id) {
+                statusDiv.style.color = 'var(--primary-pink)';
+                statusDiv.textContent = 'ERROR: ID REQUIRED';
+                // Shake effect could go here
+                return;
+            }
+
+            // OPTIMISTIC UI: Clear immediately
+            idInput.value = '';
+            idInput.focus();
+
+            statusDiv.style.color = 'var(--text-color)';
+            statusDiv.textContent = 'TRANSMITTING...';
+            // container.classList.add('loading'); // Don't block UI for speed
+
+            google.script.run
+                .withSuccessHandler(function (response) {
+                    // container.classList.remove('loading');
+                    statusDiv.style.color = action === 'IN' ? 'var(--primary-cyan)' : 'var(--primary-pink)';
+                    statusDiv.innerHTML = response.message; // Use innerHTML for styling if needed
+
+                    // Auto-clear message after 3 seconds
+                    setTimeout(() => {
+                        if (statusDiv.textContent === response.message) {
+                            statusDiv.textContent = 'READY';
+                            statusDiv.style.color = 'var(--text-color)';
+                        }
+                    }, 3000);
+                })
+                .withFailureHandler(function (error) {
+                    // container.classList.remove('loading');
+                    statusDiv.style.color = 'var(--primary-pink)';
+                    statusDiv.textContent = 'SYSTEM FAILURE: ' + error.message;
+                    // Maybe put the ID back if it failed?
+                    // idInput.value = id; 
+                })
+                .logAction(id, action);
+        }
+    </script>
+</body>
+
+</html>

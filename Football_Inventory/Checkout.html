@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <style>
+        /* THEME */
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --text: #c9d1d9;
+            --accent: #58a6ff;
+            --success: #238636;
+            --error: #da3633;
+            --warning: #d29922;
+            --border: #30363d;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 0;
+            height: 100%;
+        }
+
+        /* LEFT PANEL */
+        .panel-left {
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* RIGHT PANEL */
+        .panel-right {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        /* TOGGLE SWITCH */
+        .mode-switch {
+            display: flex;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 15px;
+        }
+
+        .mode-option {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            opacity: 0.6;
+            transition: 0.2s;
+        }
+
+        .mode-option:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .mode-option.active {
+            opacity: 1;
+            background: var(--accent);
+            color: white;
+        }
+
+        .mode-option[data-mode="in"].active {
+            background: var(--warning);
+            color: black;
+        }
+
+        /* CARD STYLES */
+        #active-player-card {
+            margin-top: 20px;
+            text-align: center;
+            padding: 20px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            transition: all 0.2s;
+            opacity: 0.6;
+        }
+
+        #active-player-card.active {
+            border-style: solid;
+            border-color: var(--accent);
+            background: rgba(88, 166, 255, 0.05);
+            opacity: 1;
+        }
+
+        .player-photo {
+            width: 100px;
+            height: 100px;
+            background: #333;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            font-weight: bold;
+            overflow: hidden;
+        }
+
+        img.player-photo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .big-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .big-number {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--accent);
+            line-height: 1;
+            margin: 5px 0;
+        }
+
+        /* INPUTS */
+        input {
+            background: #000;
+            border: 2px solid var(--border);
+            color: white;
+            padding: 15px;
+            font-size: 18px;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* LOG */
+        #scan-log {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 5px;
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+        }
+
+        .log-item {
+            background: var(--card);
+            padding: 12px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid var(--border);
+            animation: slideIn 0.2s ease-out;
+        }
+
+        .log-item.checkout {
+            border-left-color: var(--success);
+        }
+
+        .log-item.checkin {
+            border-left-color: var(--warning);
+        }
+
+        .log-item.error {
+            border-left-color: var(--error);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: #444;
+        }
+
+        #search-results {
+            max-height: 150px;
+            overflow-y: auto;
+            background: #222;
+            border: 1px solid #444;
+            position: absolute;
+            width: 240px;
+            display: none;
+            z-index: 999;
+        }
+
+        .result-row {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #333;
+            font-size: 13px;
+        }
+
+        .result-row:hover {
+            background: #333;
+        }
+
+        #error-toast {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--error);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            display: none;
+            z-index: 1000;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="error-toast"></div>
+
+    <div class="container">
+        <!-- LEFT: PLAYER -->
+        <div class="panel-left">
+            <h3 style="margin:0 0 10px 0; color:var(--text)">1. Player</h3>
+
+            <div style="position:relative">
+                <input type="text" id="player-input" placeholder="Name or ID..." autocomplete="off">
+                <div id="search-results"></div>
+            </div>
+
+            <div id="active-player-card">
+                <div class="player-photo">?</div>
+                <div class="big-name">Find Player</div>
+            </div>
+
+            <div id="equipment-list"
+                style="flex:1; margin-top:20px; border-top:1px solid var(--border); overflow-y:auto; padding-top:10px; display:none;">
+                <h4 style="margin:0 0 10px 0; color:var(--text); font-size:12px; text-transform:uppercase;">Current
+                    Equipment</h4>
+                <div id="equipment-items"></div>
+            </div>
+
+            <div style="margin-top:auto">
+                <button class="btn" onclick="resetPlayer()">Reset (Esc)</button>
+            </div>
+        </div>
+
+        <!-- RIGHT: SCANNER -->
+        <div class="panel-right">
+            <!-- MODE TOGGLE -->
+            <div class="mode-switch">
+                <div class="mode-option active" data-mode="out" onclick="setMode('out')">ISSUING (Check Out)</div>
+                <div class="mode-option" data-mode="in" onclick="setMode('in')">RETURNING (Check In)</div>
+            </div>
+
+            <h3 style="margin:0 0 10px 0; color:var(--text)" id="scan-header">2. Scan Equipment</h3>
+            <input type="text" id="item-input" placeholder="Scan Item Barcode..." autocomplete="off" disabled>
+
+            <div id="scan-log">
+                <div style="color:#555; text-align:center; margin-top:20px;">
+                    Log will appear here...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allPlayers = [];
+        let activePlayer = null;
+        let currentMode = 'out'; // 'out' or 'in'
+
+        window.onload = function () {
+            google.script.run
+                .withSuccessHandler(p => { allPlayers = p; })
+                .withFailureHandler(e => showError("Failed to load players: " + e.message))
+                .getPlayers();
+            document.getElementById('player-input').focus();
+        };
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-option').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.mode-option[data-mode="${mode}"]`).classList.add('active');
+
+            const input = document.getElementById('item-input');
+            input.focus();
+            if (input.disabled) {
+                // If disabled, we still focused, but maybe update placeholder hint
+            }
+        }
+
+        // --- PLAYER SEARCH (Same as before) ---
+        const pInput = document.getElementById('player-input');
+        const results = document.getElementById('search-results');
+
+        pInput.addEventListener('keyup', function (e) {
+            if (e.key === 'Escape') { results.style.display = 'none'; return; }
+            const term = this.value.toLowerCase();
+
+            // 1. Try Exact ID Match (Enter)
+            const exactMatch = allPlayers.find(p => String(p.id).toLowerCase() === term);
+            if (exactMatch && e.key === 'Enter') {
+                selectPlayer(exactMatch);
+                this.value = '';
+                results.style.display = 'none';
+                return;
+            }
+
+            if (term.length < 1) { results.style.display = 'none'; return; }
+
+            // 2. Filter Matches (Robust)
+            const matches = allPlayers.filter(p => {
+                const name = p.name ? String(p.name).toLowerCase() : '';
+                const num = p.number ? String(p.number).toLowerCase() : '';
+                return name.includes(term) || num.includes(term);
+            });
+
+            // 3. Fallback Enter (Select Top Match)
+            if (e.key === 'Enter' && matches.length > 0) {
+                selectPlayer(matches[0]);
+                this.value = '';
+                results.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            matches.slice(0, 5).forEach(m => {
+                html += `<div class="result-row" onclick="selectPlayerById('${m.id}')"><b>${m.name}</b> #${m.number}</div>`;
+            });
+            results.innerHTML = html;
+            results.style.display = matches.length ? 'block' : 'none';
+        });
+
+        function selectPlayerById(id) {
+            // Convert to string for safe comparison (HTML onclick passes string)
+            selectPlayer(allPlayers.find(x => String(x.id) === String(id)));
+            results.style.display = 'none';
+            pInput.value = '';
+        }
+
+        function selectPlayer(player) {
+            if (!player) return showError("Player not found");
+            activePlayer = player;
+
+            const card = document.getElementById('active-player-card');
+            card.classList.add('active');
+
+            card.classList.add('active');
+
+            let photoHtml = player.name.charAt(0);
+            if (player.photoUrl) {
+                const safeUrl = getDriveUrl(player.photoUrl);
+                photoHtml = `<img src="${safeUrl}" class="player-photo-img">`;
+            }
+
+            card.innerHTML = `
+            <div class="player-photo">${photoHtml}</div>
+            <div class="big-number">#${player.number || '?'}</div>
+            <div class="big-name">${player.name}</div>
+            <div style="font-size:14px; color:#888; margin-top:5px">${player.position || ''}</div>
+            
+            <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
+                <div style="background:#222; padding:5px 10px; border-radius:4px; font-size:12px;">
+                    <span style="color:#888">Helmet:</span> ${player.helmetSize || '-'}
+                </div>
+                <div style="background:#222; padding:5px 10px; border-radius:4px; font-size:12px;">
+                    <span style="color:#888">Pads:</span> ${player.shoulderpadSize || '-'}
+                </div>
+            </div>
+        `;
+
+            const iInput = document.getElementById('item-input');
+            iInput.disabled = false;
+            iInput.placeholder = "Ready to Scan...";
+            iInput.focus();
+
+            const log = document.getElementById('scan-log');
+            if (log.innerText.includes('Log will appear')) log.innerHTML = '';
+
+            // Load Equipment
+            loadPlayerItems(player.id);
+        }
+
+        function resetPlayer() {
+            activePlayer = null;
+            document.getElementById('active-player-card').classList.remove('active');
+            document.getElementById('active-player-card').innerHTML = `<div class="player-photo">?</div><div class="big-name">Find Player</div>`;
+            document.getElementById('item-input').disabled = true;
+            document.getElementById('item-input').placeholder = "Scan Item Barcode...";
+            document.getElementById('player-input').focus();
+
+            document.getElementById('equipment-list').style.display = 'none';
+        }
+
+        // --- ITEM SCANNING ---
+        const iInput = document.getElementById('item-input');
+
+        iInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const tagId = this.value;
+                if (!tagId) return;
+                this.value = '';
+
+                if (currentMode === 'out') {
+                    google.script.run
+                        .withSuccessHandler(itemInfo => {
+                            addLog(itemInfo.name, tagId, 'checkout');
+                            loadPlayerItems(activePlayer.id); // Refresh list
+                        })
+                        .withFailureHandler(err => addLog(err.message, tagId, 'error'))
+                        .apiCheckoutItem(tagId, activePlayer.id);
+                } else {
+                    google.script.run
+                        .withSuccessHandler(itemInfo => {
+                            addLog(itemInfo.name, tagId, 'checkin');
+                            // If we just returned item, refresh the active player's list if check-in mode is on this screen?
+                            // Typically checking in might be for ANY player. 
+                            // But if activePlayer is set, we can refresh just in case.
+                            if (activePlayer) loadPlayerItems(activePlayer.id);
+                        })
+                        .withFailureHandler(err => addLog(err.message, tagId, 'error'))
+                        .apiCheckinItem(tagId);
+                }
+            }
+        });
+
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') resetPlayer(); });
+
+        function addLog(itemName, tagId, type) {
+            const log = document.getElementById('scan-log');
+            let title = '';
+            let icon = '';
+
+            if (type === 'checkout') {
+                title = 'Checked Out: ' + itemName;
+                icon = '✅';
+            } else if (type === 'checkin') {
+                title = 'Returned: ' + itemName;
+                icon = '↩️';
+            } else {
+                title = itemName; // Error message
+                icon = '❌';
+            }
+
+            const html = `
+            <div class="log-item ${type}">
+                <div>
+                    <div style="font-weight:bold">${icon} ${title}</div>
+                    <div style="font-family:monospace; font-size:12px; opacity:0.7">${tagId}</div>
+                </div>
+            </div>
+        `;
+            log.insertAdjacentHTML('afterbegin', html);
+        }
+
+        function showError(msg) {
+            const t = document.getElementById('error-toast');
+            t.innerText = msg;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+
+        function getDriveUrl(url) {
+            // Check for Google Drive File ID
+            const match = url.match(/[-\w]{25,}/);
+            if (!match) return url; // specific ID check
+
+            // If it's a drive URL, convert to thumbnail/export view
+            if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+                return 'https://lh3.googleusercontent.com/d/' + match[0];
+            }
+            return url;
+        }
+
+        function loadPlayerItems(playerId) {
+            const listEl = document.getElementById('equipment-items');
+            const container = document.getElementById('equipment-list');
+
+            container.style.display = 'block';
+            listEl.innerHTML = '<div style="color:#666; font-size:12px; font-style:italic">Loading items...</div>';
+
+            google.script.run
+                .withSuccessHandler(items => {
+                    if (!items || items.length === 0) {
+                        listEl.innerHTML = '<div style="color:#444; font-size:12px">No items checked out.</div>';
+                        return;
+                    }
+
+                    let html = '';
+                    items.forEach(item => {
+                        html += `
+                        <div style="background:#222; padding:8px; border-radius:4px; margin-bottom:5px; border-left:3px solid var(--accent)">
+                            <div style="font-weight:bold; font-size:13px">${item.name}</div>
+                            <div style="font-size:11px; color:#888; display:flex; justify-content:space-between">
+                                <span>${item.brand} / ${item.size}</span>
+                                <span style="font-family:monospace">${item.tagId}</span>
+                            </div>
+                        </div>`;
+                    });
+                    listEl.innerHTML = html;
+                })
+                .withFailureHandler(err => {
+                    listEl.innerHTML = '<div style="color:var(--error); font-size:12px">Error loading items</div>';
+                })
+                .getPlayerItems(playerId);
+        }
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,55 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #000;
+    /* Deep black background for maximum contrast */
+    overflow: hidden;
+    /* Hide scrollbars for fullscreen */
+    width: 100vw;
+    height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    cursor: none;
+    /* Hide cursor in kiosk mode */
+}
+
+#slideshow-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Fill the screen edge-to-edge, slight crop if needed */
+    image-rendering: high-quality;
+    /* Use high-quality image scaling */
+    opacity: 0;
+    transition: opacity 2s ease-in-out;
+    /* Smooth 2-second premium fade */
+    z-index: 1;
+}
+
+.slide.active {
+    opacity: 1;
+    z-index: 2;
+}
+
+/* Optional loading spinner or default text before JS kicks in */
+.loading {
+    color: #444;
+    font-size: 1.5rem;
+    position: absolute;
+    z-index: 0;
+}

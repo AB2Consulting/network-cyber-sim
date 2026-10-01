@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: black;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.3);
+            /* Slight dim to make text pop */
+        }
+
+        h1 {
+            font-size: 3em;
+            text-shadow: 0 0 10px #00ff00;
+            margin-bottom: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 30px;
+            border: 1px solid #00ff00;
+        }
+
+        #active-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            max-width: 80%;
+        }
+
+        .student-card {
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid #00ff00;
+            padding: 20px;
+            min-width: 200px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+            animation: pulse 4s infinite;
+        }
+
+        .student-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .student-time {
+            font-size: 0.9em;
+            color: #00ff00;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(0, 255, 0, 0.5);
+            }
+
+            100% {
+                box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="overlay">
+        <h1>ACTIVE OPERATIVES</h1>
+        <div id="active-list">
+            <div class="student-card">
+                <div class="student-name">Initializing...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Matrix Rain Effect
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const katakana = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+        const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const nums = '0123456789';
+        const alphabet = katakana + latin + nums;
+
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+
+        const rainDrops = [];
+
+        for (let x = 0; x < columns; x++) {
+            rainDrops[x] = 1;
+        }
+
+        const draw = () => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#0F0';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < rainDrops.length; i++) {
+                const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+
+                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    rainDrops[i] = 0;
+                }
+                rainDrops[i]++;
+            }
+        };
+
+        setInterval(draw, 30);
+
+        // Update Active Students
+        function updateStudents() {
+            google.script.run
+                .withSuccessHandler(renderStudents)
+                .withFailureHandler(renderError)
+                .getScreensaverData();
+        }
+
+        function renderError(error) {
+            const listContainer = document.getElementById('active-list');
+            listContainer.innerHTML = '<div style="color: red; border: 1px solid red; padding: 20px;">SYSTEM ERROR: ' + error.message + '</div>';
+        }
+
+        function renderStudents(data) {
+            try {
+                // Remove debug dump
+                /* 
+                let debugDump = document.getElementById('debug-dump');
+                ...
+                */
+
+                if (!data) {
+                    renderError({ message: "SERVER RETURNED NULL. Check Server Logs." });
+                    return;
+                }
+
+                const listContainer = document.getElementById('active-list');
+                listContainer.innerHTML = '';
+
+                // Handle Closed State
+                if (data.status === 'CLOSED') {
+                    const warning = document.createElement('div');
+                    warning.style.color = 'red';
+                    warning.style.fontSize = '2em';
+                    warning.style.border = '2px solid red';
+                    warning.style.padding = '20px';
+                    warning.style.backgroundColor = 'rgba(20,0,0,0.8)';
+                    warning.textContent = data.message || 'SYSTEM OFFLINE';
+                    listContainer.appendChild(warning);
+                    return;
+                }
+
+                // Handle Open but Empty
+                if (!data.students || data.students.length === 0) {
+                    listContainer.innerHTML = '<div style="color: #00ff00; opacity: 0.7;">NO ACTIVE SIGNALS</div>';
+                    return;
+                }
+
+                data.students.forEach(student => {
+                    const card = document.createElement('div');
+                    card.className = 'student-card';
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'student-name';
+                    nameDiv.textContent = student.name;
+
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'student-time';
+                    // Format rough time
+                    const startTime = new Date(student.since);
+                    timeDiv.textContent = 'Since: ' + startTime.toLocaleTimeString();
+
+                    card.appendChild(nameDiv);
+                    card.appendChild(timeDiv);
+                    listContainer.appendChild(card);
+                });
+            } catch (err) {
+                renderError({ message: "RENDER CRASH: " + err.message });
+            }
+        }
+
+        // Initial call and poll every 10 seconds
+        updateStudents();
+        setInterval(updateStudents, 10000);
+
+    </script>
+</body>
+
+</html>

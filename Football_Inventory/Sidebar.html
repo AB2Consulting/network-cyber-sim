@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <style>
+        /* VARIABLES (Matches our Next.js One-Dark theme) */
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --primary: #58a6ff;
+            --primary-hover: #1f6feb;
+            --danger: #da3633;
+            --success: #238636;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
+        /* GLOBAL RESET */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            font-size: 14px;
+        }
+
+        /* UTILITIES */
+        .hidden {
+            display: none !important;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .font-bold {
+            font-weight: bold;
+        }
+
+        .text-muted {
+            color: var(--text-muted);
+        }
+
+        .mt-4 {
+            margin-top: 1rem;
+        }
+
+        .p-4 {
+            padding: 1rem;
+        }
+
+        /* NAVIGATION TABS */
+        .nav-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--card-bg);
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: bold;
+        }
+
+        /* CARDS & CONTAINERS */
+        .container {
+            padding: 16px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        /* BUTTONS */
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: 0.2s;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--border-color);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--text-main);
+            border-color: var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-muted);
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            width: auto;
+        }
+
+        /* FORMS */
+        input,
+        select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        /* PLAYER LIST */
+        .player-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .player-row:last-child {
+            border-bottom: none;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            margin-right: 12px;
+        }
+
+        /* LOADING SPINNER */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary);
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* DETAIL TAGS */
+        .tag {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-right: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVIGATION -->
+    <div class="nav-tabs">
+        <div class="nav-tab active" onclick="switchTab('roster')">Roster</div>
+        <div class="nav-tab" onclick="switchTab('inventory')">Inventory</div>
+    </div>
+
+    <!-- VIEW: ROSTER -->
+    <div id="view-roster" class="container">
+        <div class="flex justify-between items-center mb-4">
+            <h2 style="margin:0">Players</h2>
+            <button class="btn btn-sm btn-secondary" onclick="showAddPlayerStart()">+ Add</button>
+        </div>
+
+        <input type="text" id="player-search" placeholder="Search players..." onkeyup="filterPlayers()">
+
+        <div id="player-list">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- VIEW: INVENTORY / SCANNER -->
+    <div id="view-inventory" class="container hidden">
+        <div class="card" style="text-align:center; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 8px;">📷</div>
+            <h3>Scan Item</h3>
+            <input type="text" id="scan-input" placeholder="Scan Tag ID..."
+                style="text-align:center; font-family:monospace; font-size:16px;">
+            <p class="text-muted" style="font-size:12px">Press Enter to Action</p>
+        </div>
+
+        <!-- Inventory List for Overview -->
+        <h3 style="margin-bottom:8px">All Inventory</h3>
+        <input type="text" id="inv-search" placeholder="Search items..." onkeyup="filterInventory()">
+
+        <div id="inventory-list">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="scan-result" class="hidden" style="margin-top:10px">
+            <!-- Dynamic result here -->
+        </div>
+    </div>
+
+    <!-- VIEW: ADD/EDIT PLAYER (Modal-like overlay) -->
+    <div id="view-player-form" class="container hidden">
+        <div class="flex items-center gap-2 mb-4 cursor-pointer" onclick="cancelPlayerForm()">
+            <span class="text-muted">← Back</span>
+        </div>
+        <h2 id="form-title">Add Player</h2>
+
+        <form id="playerForm" onsubmit="handlePlayerSubmit(event)">
+            <input type="hidden" id="p-id">
+
+            <label>Name</label>
+            <input type="text" id="p-name" required>
+
+            <div class="flex gap-2">
+                <div class="w-full">
+                    <label>Number</label>
+                    <input type="number" id="p-number" required>
+                </div>
+                <div class="w-full">
+                    <label>Custom ID (Optional)</label>
+                    <input type="text" id="p-custom-id">
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <div class="w-full">
+                    <label>Shirt Size</label>
+                    <select id="p-shirt">
+                        <option value="S">S</option>
+                        <option value="M" selected>M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="2XL">2XL</option>
+                        <option value="3XL">3XL</option>
+                    </select>
+                </div>
+                <div class="w-full">
+                    <label>Short Size</label>
+                    <select id="p-short">
+                        <option value="S">S</option>
+                        <option value="M" selected>M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="2XL">2XL</option>
+                        <option value="3XL">3XL</option>
+                    </select>
+                </div>
+            </div>
+
+            <label>Photo URL</label>
+            <input type="url" id="p-photo">
+
+            <button type="submit" class="btn btn-primary mt-4">Save Player</button>
+        </form>
+    </div>
+
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let allPlayers = [];
+        let allInventory = [];
+
+        // --- INITIALIZATION ---
+        window.onload = function () {
+            loadPlayers();
+            loadInventory();
+        };
+
+        // --- NAVIGATION ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('view-roster').classList.add('hidden');
+            document.getElementById('view-inventory').classList.add('hidden');
+            document.getElementById('view-player-form').classList.add('hidden');
+
+            document.getElementById('view-' + tabName).classList.remove('hidden');
+        }
+
+        // --- PLAYERS LOGIC ---
+        function loadPlayers() {
+            const listEl = document.getElementById('player-list');
+            listEl.innerHTML = '<div class="spinner"></div>';
+
+            google.script.run
+                .withSuccessHandler(players => {
+                    allPlayers = players;
+                    renderPlayers(players);
+                })
+                .getPlayers();
+        }
+
+        function renderPlayers(players) {
+            const listEl = document.getElementById('player-list');
+            if (players.length === 0) {
+                listEl.innerHTML = '<div class="text-center text-muted p-4">No players found.</div>';
+                return;
+            }
+
+            let html = '';
+            players.forEach(p => {
+                let avatarContent = p.name ? p.name.charAt(0) : '?';
+                if (p.photoUrl) {
+                    const safeUrl = getDriveUrl(p.photoUrl);
+                    avatarContent = `<img src="${safeUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:50%">`;
+                }
+
+                html += `
+           <div class="player-row cursor-pointer" onclick="editPlayer('${p.id}')">
+             <div class="avatar">${avatarContent}</div>
+             <div style="flex:1">
+               <div class="font-bold">${p.name} <span class="text-muted" style="font-weight:normal">#${p.number || ''}</span></div>
+               <div class="text-muted" style="font-size:12px">${p.position ? p.position + ' • ' : ''}${p.status}</div>
+             </div>
+             <div class="text-muted">Edit</div>
+           </div>
+         `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        function filterPlayers() {
+            const term = document.getElementById('player-search').value.toLowerCase();
+            const filtered = allPlayers.filter(p => {
+                const name = p.name ? String(p.name).toLowerCase() : '';
+                const num = p.number ? String(p.number).toLowerCase() : '';
+                return name.includes(term) || num.includes(term);
+            });
+            renderPlayers(filtered);
+        }
+
+        // --- ADD/EDIT PLAYER ---
+        function showAddPlayerStart() {
+            document.getElementById('view-roster').classList.add('hidden');
+            document.getElementById('view-player-form').classList.remove('hidden');
+            document.getElementById('form-title').innerText = 'Add Player';
+            document.getElementById('playerForm').reset();
+            document.getElementById('p-id').value = '';
+        }
+
+        function editPlayer(id) {
+            const p = allPlayers.find(x => x.id === id);
+            if (!p) return;
+
+            document.getElementById('view-roster').classList.add('hidden');
+            document.getElementById('view-player-form').classList.remove('hidden');
+            document.getElementById('form-title').innerText = 'Edit Player';
+
+            document.getElementById('p-id').value = p.id;
+            document.getElementById('p-custom-id').value = p.id;
+            document.getElementById('p-name').value = p.name;
+            document.getElementById('p-number').value = p.number;
+            document.getElementById('p-photo').value = p.photoUrl;
+            document.getElementById('p-shirt').value = p.shirtSize;
+            document.getElementById('p-short').value = p.shortSize;
+        }
+
+        function getDriveUrl(url) {
+            const match = url.match(/[-\w]{25,}/);
+            if (!match) return url;
+            if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+                return 'https://lh3.googleusercontent.com/d/' + match[0];
+            }
+            return url;
+        }
+
+        function cancelPlayerForm() {
+            document.getElementById('view-player-form').classList.add('hidden');
+            document.getElementById('view-roster').classList.remove('hidden');
+        }
+
+        function handlePlayerSubmit(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.innerText = 'Saving...';
+            btn.disabled = true;
+
+            const id = document.getElementById('p-id').value;
+            const customId = document.getElementById('p-custom-id').value;
+
+            const playerData = {
+                id: id || customId,
+                name: document.getElementById('p-name').value,
+                number: document.getElementById('p-number').value,
+                photoUrl: document.getElementById('p-photo').value,
+                shirtSize: document.getElementById('p-shirt').value,
+                shortSize: document.getElementById('p-short').value
+            };
+
+            if (id) {
+                google.script.run
+                    .withSuccessHandler(() => {
+                        loadPlayers(); // Reload list
+                        cancelPlayerForm();
+                    })
+                    .apiUpdatePlayer(playerData);
+            } else {
+                google.script.run
+                    .withSuccessHandler(() => {
+                        loadPlayers();
+                        cancelPlayerForm();
+                    })
+                    .apiAddPlayer(playerData);
+            }
+        }
+
+        // --- INVENTORY LOGIC ---
+        function loadInventory() {
+            google.script.run
+                .withSuccessHandler(items => {
+                    allInventory = items;
+                    renderInventory(items);
+                })
+                .getInventory();
+        }
+
+        function renderInventory(items) {
+            const listEl = document.getElementById('inventory-list');
+            if (items.length === 0) {
+                listEl.innerHTML = '<div class="text-center text-muted p-4">No inventory found.</div>';
+                return;
+            }
+
+            // Show truncated list (max 50 to avoid lag)
+            const displayItems = items.slice(0, 50);
+            let html = '';
+            displayItems.forEach(item => {
+                const statusColor = item.status === 'Available' ? 'var(--success)' : 'var(--danger)';
+                const brandInfo = item.brand ? `<span class="tag">${item.brand}</span>` : '';
+                const sizeInfo = item.size ? `<span class="tag">${item.size}</span>` : '';
+
+                html += `
+              <div class="card" style="padding:10px; display:flex; flex-direction:column; gap:4px">
+                 <div class="flex justify-between">
+                    <span class="font-bold">${item.itemName}</span>
+                    <span style="font-family:monospace; font-size:12px">${item.tagId}</span>
+                 </div>
+                 <div class="flex items-center">
+                    ${brandInfo}
+                    ${sizeInfo}
+                    <span style="font-size:10px; color:${statusColor}; margin-left:auto">${item.status}</span>
+                 </div>
+              </div>
+            `;
+            });
+
+            listEl.innerHTML = html;
+            if (items.length > 50) {
+                listEl.innerHTML += '<div class="text-center text-muted text-xs">...and more items</div>';
+            }
+        }
+
+        function filterInventory() {
+            const term = document.getElementById('inv-search').value.toLowerCase();
+            const filtered = allInventory.filter(i =>
+                i.tagId.toString().toLowerCase().includes(term) ||
+                i.itemName.toLowerCase().includes(term) ||
+                (i.brand && i.brand.toLowerCase().includes(term))
+            );
+            renderInventory(filtered);
+        }
+
+        // --- SCANNER LOGIC ---
+        const scanInput = document.getElementById('scan-input');
+        scanInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const tagId = scanInput.value;
+                const resultEl = document.getElementById('scan-result');
+                resultEl.classList.remove('hidden');
+                resultEl.innerHTML = '<div class="spinner"></div>';
+
+                google.script.run
+                    .withSuccessHandler(() => {
+                        resultEl.innerHTML = `<div class="card" style="border-color:var(--success); color:var(--success)">✅ Action Complete: ${tagId}</div>`;
+                        scanInput.value = '';
+                        loadInventory(); // Refresh view
+                        setTimeout(() => resultEl.classList.add('hidden'), 3000);
+                    })
+                    .withFailureHandler(err => {
+                        resultEl.innerHTML = `<div class="card" style="border-color:var(--danger); color:var(--danger)">❌ Error: ${err.message}</div>`;
+                        scanInput.select();
+                    })
+                    .apiCheckinItem(tagId); // Simple toggle for now
+            }
+        });
+
+    </script>
+</body>
+
+</html>

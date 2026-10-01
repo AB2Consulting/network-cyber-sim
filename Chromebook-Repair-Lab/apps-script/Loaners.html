@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Repair Lab — Loaners</title>
+  <style>
+    :root {
+      --bg: #050508;
+      --card: #0d0d18;
+      --border: rgba(0,243,255,0.22);
+      --cyan: #00f3ff;
+      --pink: #ff00ff;
+      --green: #00ff88;
+      --yellow: #ffcc00;
+      --text: #e8e8ff;
+      --muted: rgba(255,255,255,0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px 40px;
+    }
+    header { text-align: center; margin-bottom: 32px; }
+    header h1 {
+      font-size: 1.5em; letter-spacing: 4px;
+      text-transform: uppercase; color: var(--cyan);
+      text-shadow: 0 0 14px var(--cyan);
+    }
+    header p { margin-top: 6px; font-size: 0.8em; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+      align-items: start;
+    }
+    @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 28px;
+    }
+    .panel-title {
+      font-size: 0.7em; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--cyan); margin-bottom: 24px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .field { margin-bottom: 16px; }
+    label {
+      display: block; font-size: 0.72em; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+    input[type="text"] {
+      width: 100%; padding: 12px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 0.95em; outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    input[type="text"]:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 14px rgba(0,243,255,0.2);
+    }
+    .scan-hint {
+      font-size: 0.7em; color: var(--muted); margin-top: 6px; letter-spacing: 1px;
+    }
+    .submit-btn {
+      width: 100%; padding: 14px;
+      border: 2px solid var(--green); border-radius: 6px;
+      background: transparent; color: var(--green);
+      font-size: 0.9em; font-weight: 700;
+      letter-spacing: 3px; text-transform: uppercase;
+      cursor: pointer; transition: all 0.25s; margin-top: 8px;
+    }
+    .submit-btn:hover { background: var(--green); color: #000; box-shadow: 0 0 24px rgba(0,255,136,0.4); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #feedback {
+      margin-top: 14px; padding: 12px; border-radius: 6px;
+      font-size: 0.82em; text-align: center; display: none;
+      letter-spacing: 1px;
+    }
+    #feedback.success { display: block; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.3); color: var(--green); }
+    #feedback.error   { display: block; background: rgba(255,0,80,0.08);  border: 1px solid rgba(255,0,80,0.3);  color: var(--pink); }
+
+    /* Table */
+    .table-wrapper { overflow-x: auto; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 0.85em;
+    }
+    th {
+      text-align: left; font-size: 0.65em; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--muted);
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+    }
+    td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .asset-tag { font-family: 'Courier New', monospace; color: var(--cyan); font-weight: 700; letter-spacing: 1px; }
+    .status-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .status-badge.checked-out { background: rgba(255,204,0,0.12); color: var(--yellow); border: 1px solid rgba(255,204,0,0.3); }
+    .return-btn {
+      padding: 6px 14px; font-size: 0.72em; letter-spacing: 1px;
+      text-transform: uppercase; border-radius: 4px; cursor: pointer;
+      font-weight: 600; border: 1px solid var(--pink); color: var(--pink);
+      background: transparent; transition: all 0.2s; white-space: nowrap;
+    }
+    .return-btn:hover { background: var(--pink); color: #000; }
+    .no-loaners { text-align: center; padding: 30px; color: var(--muted); font-size: 0.85em; letter-spacing: 2px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Repair Lab</h1>
+    <p>Loaner Management</p>
+  </header>
+
+  <div class="layout">
+    <!-- Assign Loaner -->
+    <div class="panel">
+      <div class="panel-title">Assign Loaner</div>
+
+      <div class="field">
+        <label>Asset Tag</label>
+        <input type="text" id="assetTag" placeholder="Scan or type asset tag" autocomplete="off" />
+        <div class="scan-hint">📷 Scan barcode or type the asset tag manually</div>
+      </div>
+
+      <div class="field">
+        <label>Customer Name</label>
+        <input type="text" id="custName" placeholder="Full name" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label>Customer Student ID</label>
+        <input type="text" id="custId" placeholder="Student ID" autocomplete="off" />
+      </div>
+
+      <button class="submit-btn" id="assignBtn" onclick="assignLoaner()">Assign Loaner</button>
+      <div id="feedback"></div>
+    </div>
+
+    <!-- Active Loaners Table -->
+    <div class="panel">
+      <div class="panel-title">Active Loaners</div>
+      <div class="table-wrapper">
+        <div id="loaner-table-wrap">
+          <div class="no-loaners">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Auto-focus
+    window.onload = () => document.getElementById('assetTag').focus();
+
+    // ── Assign Loaner ──
+    function assignLoaner() {
+      const tag  = document.getElementById('assetTag').value.trim();
+      const name = document.getElementById('custName').value.trim();
+      const id   = document.getElementById('custId').value.trim();
+
+      if (!tag || !name || !id) {
+        showFeedback('All fields are required.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('assignBtn');
+      btn.disabled = true;
+      btn.textContent = 'Assigning…';
+
+      google.script.run
+        .withSuccessHandler(res => {
+          showFeedback('✓ ' + res.message, 'success');
+          document.getElementById('assetTag').value = '';
+          document.getElementById('custName').value = '';
+          document.getElementById('custId').value   = '';
+          document.getElementById('assetTag').focus();
+          btn.disabled = false;
+          btn.textContent = 'Assign Loaner';
+          loadLoaners();
+        })
+        .withFailureHandler(err => {
+          showFeedback('Error: ' + err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Assign Loaner';
+        })
+        .assignLoaner(tag, name, id);
+    }
+
+    function showFeedback(msg, type) {
+      const fb = document.getElementById('feedback');
+      fb.textContent  = msg;
+      fb.className    = type;
+      fb.style.display = 'block';
+      if (type === 'success') setTimeout(() => { fb.style.display = 'none'; }, 5000);
+    }
+
+    // ── Load loaner table ──
+    function loadLoaners() {
+      google.script.run
+        .withSuccessHandler(renderLoaners)
+        .withFailureHandler(err => {
+          document.getElementById('loaner-table-wrap').innerHTML =
+            '<div class="no-loaners" style="color:#ff6666;">Error: ' + err.message + '</div>';
+        })
+        .getAllLoaners();
+    }
+
+    function renderLoaners(loaners) {
+      const wrap = document.getElementById('loaner-table-wrap');
+      const active = (loaners || []).filter(l => l.status && l.status.toLowerCase() === 'checked out');
+
+      if (active.length === 0) {
+        wrap.innerHTML = '<div class="no-loaners">No loaners currently checked out ✓</div>';
+        return;
+      }
+
+      const rows = active.map(l => {
+        const out = l.checkoutTime ? new Date(l.checkoutTime).toLocaleString([], {
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        }) : '—';
+        return '<tr>' +
+          '<td><span class="asset-tag">' + l.assetTag + '</span></td>' +
+          '<td>' + l.assignedName + '</td>' +
+          '<td>' + l.assignedId + '</td>' +
+          '<td>' + out + '</td>' +
+          '<td><span class="status-badge checked-out">Out</span></td>' +
+          '<td><button class="return-btn" onclick="returnLoaner(\'' + l.assetTag + '\')">Return</button></td>' +
+        '</tr>';
+      }).join('');
+
+      wrap.innerHTML =
+        '<table>' +
+          '<thead><tr>' +
+            '<th>Asset Tag</th><th>Customer</th><th>ID</th><th>Checked Out</th><th>Status</th><th></th>' +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>';
+    }
+
+    function returnLoaner(assetTag) {
+      if (!confirm('Mark ' + assetTag + ' as returned?')) return;
+      google.script.run
+        .withSuccessHandler(() => loadLoaners())
+        .withFailureHandler(err => alert('Error: ' + err.message))
+        .returnLoaner(assetTag);
+    }
+
+    loadLoaners();
+    setInterval(loadLoaners, 30000);
+  </script>
+</body>
+</html>

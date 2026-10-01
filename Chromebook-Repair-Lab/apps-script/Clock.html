@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Cyber Clock</title>
+  <style>
+    :root {
+      --bg: #050508;
+      --card-bg: #0a0a12;
+      --cyan: #00f3ff;
+      --pink: #ff00ff;
+      --text: #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .scanline {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.25) 51%);
+      background-size: 100% 4px;
+      pointer-events: none; z-index: 10; opacity: 0.2;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 30px rgba(0,243,255,0.15), inset 0 0 20px rgba(0,243,255,0.05);
+      border-radius: 12px;
+      padding: 50px 40px 40px;
+      text-align: center;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+    }
+    .card::before {
+      content: '';
+      position: absolute; top: -1px; left: -1px; right: -1px; bottom: -1px;
+      background: linear-gradient(135deg, var(--cyan), transparent 50%, var(--pink));
+      border-radius: 13px; z-index: -1; opacity: 0.4;
+    }
+    h1 {
+      font-size: 1.4em;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      text-shadow: 0 0 12px var(--cyan);
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 0.75em;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase;
+      margin-bottom: 36px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 16px;
+      margin-bottom: 24px;
+      background: rgba(0,243,255,0.04);
+      border: 1px solid rgba(0,243,255,0.4);
+      border-radius: 6px;
+      color: white;
+      font-size: 1.2em;
+      letter-spacing: 2px;
+      text-align: center;
+      outline: none;
+      transition: all 0.3s;
+    }
+    input[type="text"]::placeholder { color: rgba(255,255,255,0.2); letter-spacing: 1px; }
+    input[type="text"]:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0,243,255,0.25);
+      background: rgba(0,243,255,0.07);
+    }
+    .btn-group { display: flex; gap: 16px; }
+    .cyber-btn {
+      flex: 1; padding: 16px; border: none; border-radius: 6px;
+      cursor: pointer; font-weight: 700; font-size: 0.9em;
+      text-transform: uppercase; letter-spacing: 2px;
+      transition: all 0.25s; background: transparent;
+    }
+    .btn-in {
+      border: 2px solid var(--cyan); color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0,243,255,0.15);
+    }
+    .btn-in:hover {
+      background: var(--cyan); color: #000;
+      box-shadow: 0 0 25px rgba(0,243,255,0.5);
+    }
+    .btn-out {
+      border: 2px solid var(--pink); color: var(--pink);
+      box-shadow: 0 0 12px rgba(255,0,255,0.15);
+    }
+    .btn-out:hover {
+      background: var(--pink); color: #000;
+      box-shadow: 0 0 25px rgba(255,0,255,0.5);
+    }
+    #status {
+      margin-top: 24px;
+      min-height: 22px;
+      font-size: 0.85em;
+      letter-spacing: 1px;
+      transition: color 0.3s;
+    }
+    #status.success { color: var(--cyan); }
+    #status.error   { color: var(--pink); }
+    #status.pending { color: rgba(255,255,255,0.5); }
+  </style>
+</head>
+<body>
+  <div class="scanline"></div>
+  <div class="card">
+    <h1>Repair Lab</h1>
+    <p class="subtitle">Technician Sign-In</p>
+
+    <input type="text" id="studentId" placeholder="Scan or Enter ID" autocomplete="off" />
+
+    <div class="btn-group">
+      <button class="cyber-btn btn-in"  onclick="handleClock('IN')">Clock In</button>
+      <button class="cyber-btn btn-out" onclick="handleClock('OUT')">Clock Out</button>
+    </div>
+
+    <div id="status" class="pending">READY</div>
+  </div>
+
+  <script>
+    const idInput  = document.getElementById('studentId');
+    const statusEl = document.getElementById('status');
+
+    window.onload = () => idInput.focus();
+    document.body.addEventListener('click', () => idInput.focus());
+
+    // ── Scan (Enter key) = auto-detect IN or OUT ──
+    idInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') handleScan();
+    });
+
+    function handleScan() {
+      const id = idInput.value.trim();
+      if (!id) { setStatus('ID REQUIRED', 'error'); return; }
+
+      idInput.value = '';
+      idInput.focus();
+      setStatus('IDENTIFYING...', 'pending');
+
+      google.script.run
+        .withSuccessHandler(res => {
+          // Auto-pick the opposite of the current state
+          const action = res.isIn ? 'OUT' : 'IN';
+          setStatus(res.isIn ? 'CURRENTLY IN — CLOCKING OUT…' : 'NOT CLOCKED IN — CLOCKING IN…', 'pending');
+          commitClock(id, action);
+        })
+        .withFailureHandler(err => {
+          setStatus('ERROR: ' + err.message, 'error');
+          setTimeout(() => setStatus('READY', 'pending'), 4000);
+        })
+        .getStudentStatus(id);
+    }
+
+    // ── Manual buttons (override) ──
+    function handleClock(action) {
+      const id = idInput.value.trim();
+      if (!id) { setStatus('ID REQUIRED', 'error'); return; }
+      idInput.value = '';
+      idInput.focus();
+      setStatus('TRANSMITTING...', 'pending');
+      commitClock(id, action);
+    }
+
+    function commitClock(id, action) {
+      google.script.run
+        .withSuccessHandler(res => {
+          setStatus(res.message, 'success');
+          setTimeout(() => setStatus('READY', 'pending'), 3500);
+        })
+        .withFailureHandler(err => {
+          setStatus('ERROR: ' + err.message, 'error');
+          setTimeout(() => setStatus('READY', 'pending'), 4000);
+        })
+        .logAction(id, action);
+    }
+
+    function setStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = type || 'pending';
+    }
+  </script>
+</body>
+</html>
