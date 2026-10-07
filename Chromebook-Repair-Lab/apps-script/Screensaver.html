@@ -6,105 +6,194 @@
   <title>Repair Lab Monitor</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
       background: #000;
       font-family: 'Courier New', monospace;
       color: #00ff00;
       overflow: hidden;
+      height: 100vh;
     }
+
     canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+
+    /* ── Main overlay ── */
     #overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       z-index: 2;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 40px;
-      background: rgba(0,0,0,0.35);
+      background: rgba(0,0,0,0.4);
     }
-    /* Header */
+
+    /* ── Header ── */
     #header {
       text-align: center;
+      padding: 18px 20px 10px;
+      flex-shrink: 0;
     }
     #header h1 {
-      font-size: clamp(2em, 5vw, 3.5em);
+      font-size: clamp(1.4em, 3.5vw, 2.6em);
       text-shadow: 0 0 12px #00ff00;
-      background: rgba(0,0,0,0.7);
-      padding: 12px 40px;
+      background: rgba(0,0,0,0.75);
+      display: inline-block;
+      padding: 8px 36px;
       border: 1px solid #00ff00;
       letter-spacing: 4px;
       text-transform: uppercase;
     }
     #ticket-banner {
-      margin-top: 12px;
-      font-size: clamp(0.9em, 2vw, 1.3em);
+      margin-top: 8px;
+      font-size: clamp(0.75em, 1.5vw, 1.1em);
       color: #ffff00;
       text-shadow: 0 0 8px #aaaa00;
       letter-spacing: 2px;
       background: rgba(0,0,0,0.6);
-      padding: 6px 24px;
+      display: inline-block;
+      padding: 4px 20px;
       border: 1px solid rgba(255,255,0,0.3);
     }
-    /* Student Cards */
-    #active-list {
+
+    /* ── Role columns ── */
+    #roles-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      padding: 14px 18px 54px;
+      min-height: 0;
+    }
+
+    .role-col {
       display: flex;
-      flex-wrap: wrap;
-      gap: 28px;
-      justify-content: center;
-      max-width: 90vw;
+      flex-direction: column;
+      background: rgba(0,0,0,0.6);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid;
     }
-    .student-card {
-      background: rgba(0,20,0,0.85);
-      border: 1px solid #00ff00;
-      padding: 22px 30px;
-      min-width: 200px;
-      max-width: 240px;
+
+    /* Per-role accent colours */
+    .role-col.repair    { border-color: rgba(0,243,255,0.5);  }
+    .role-col.intake    { border-color: rgba(0,255,136,0.5);  }
+    .role-col.qa        { border-color: rgba(255,204,0,0.5);  }
+    .role-col.inventory { border-color: rgba(200,100,255,0.5);}
+
+    .role-header {
+      padding: 12px 14px 10px;
       text-align: center;
-      box-shadow: 0 0 20px rgba(0,255,0,0.15);
-      animation: pulse 4s ease-in-out infinite;
-      border-radius: 4px;
+      border-bottom: 1px solid;
+      flex-shrink: 0;
     }
-    .student-name {
-      font-size: clamp(1em, 2.5vw, 1.5em);
+    .role-col.repair    .role-header { background: rgba(0,243,255,0.08);  border-color: rgba(0,243,255,0.3);  }
+    .role-col.intake    .role-header { background: rgba(0,255,136,0.08);  border-color: rgba(0,255,136,0.3);  }
+    .role-col.qa        .role-header { background: rgba(255,204,0,0.08);  border-color: rgba(255,204,0,0.3);  }
+    .role-col.inventory .role-header { background: rgba(200,100,255,0.08);border-color: rgba(200,100,255,0.3);}
+
+    .role-icon { font-size: clamp(1.4em, 2.5vw, 2em); display: block; margin-bottom: 4px; }
+
+    .role-name {
+      font-size: clamp(0.6em, 1.2vw, 0.85em);
+      letter-spacing: 2px;
+      text-transform: uppercase;
       font-weight: bold;
-      color: #fff;
+    }
+    .role-col.repair    .role-name { color: #00f3ff; text-shadow: 0 0 8px #00f3ff; }
+    .role-col.intake    .role-name { color: #00ff88; text-shadow: 0 0 8px #00ff88; }
+    .role-col.qa        .role-name { color: #ffcc00; text-shadow: 0 0 8px #ffcc00; }
+    .role-col.inventory .role-name { color: #c864ff; text-shadow: 0 0 8px #c864ff; }
+
+    .role-limit {
+      font-size: 0.62em;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 1px;
+      margin-top: 3px;
+    }
+
+    /* Student slots */
+    .role-students {
+      flex: 1;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+    }
+
+    .student-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      padding: 10px 12px;
+      text-align: center;
+      border: 1px solid;
+      animation: cardIn 0.4s ease-out;
+    }
+    .role-col.repair    .student-card { border-color: rgba(0,243,255,0.25);  }
+    .role-col.intake    .student-card { border-color: rgba(0,255,136,0.25);  }
+    .role-col.qa        .student-card { border-color: rgba(255,204,0,0.25);  }
+    .role-col.inventory .student-card { border-color: rgba(200,100,255,0.25);}
+
+    .student-name {
+      font-size: clamp(0.75em, 1.4vw, 1.05em);
+      font-weight: bold;
+      color: #ffffff;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 10px;
     }
-    .student-time {
-      font-size: 0.85em;
-      color: #00cc00;
+    .student-since {
+      font-size: 0.7em;
+      color: rgba(255,255,255,0.4);
+      margin-top: 3px;
     }
-    .empty-msg {
-      color: rgba(0,255,0,0.5);
-      font-size: 1.4em;
-      letter-spacing: 3px;
-      border: 1px dashed rgba(0,255,0,0.2);
-      padding: 20px 40px;
-      background: rgba(0,0,0,0.5);
+
+    .empty-slot {
+      border: 1px dashed rgba(255,255,255,0.1);
+      border-radius: 4px;
+      padding: 10px;
+      text-align: center;
+      color: rgba(255,255,255,0.15);
+      font-size: 0.7em;
+      letter-spacing: 2px;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    /* Closed / empty states */
+    #state-msg {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 5;
     }
     .closed-msg {
       color: #ff4444;
       font-size: clamp(1.2em, 3vw, 2em);
       border: 2px solid #ff4444;
       padding: 20px 40px;
-      background: rgba(20,0,0,0.8);
-      text-align: center;
+      background: rgba(20,0,0,0.9);
       letter-spacing: 4px;
     }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 20px rgba(0,255,0,0.15); }
-      50%       { box-shadow: 0 0 35px rgba(0,255,0,0.45); border-color: #00ff88; }
+    .empty-msg {
+      color: rgba(0,255,0,0.5);
+      font-size: clamp(1em, 2vw, 1.5em);
+      letter-spacing: 3px;
+      border: 1px dashed rgba(0,255,0,0.2);
+      padding: 20px 40px;
+      background: rgba(0,0,0,0.7);
     }
-    /* Clock */
+
+    /* ── Clock ── */
     #clock {
       position: fixed;
-      bottom: 20px; right: 28px;
-      font-size: 1.1em;
-      color: rgba(0,255,0,0.5);
-      z-index: 3;
+      bottom: 18px; right: 24px;
+      font-size: 1em;
+      color: rgba(0,255,0,0.45);
+      z-index: 10;
       letter-spacing: 2px;
     }
   </style>
@@ -117,17 +206,57 @@
       <h1>Chromebook Repair Lab</h1>
       <div id="ticket-banner">⚡ Open Tickets: <span id="ticket-count">—</span></div>
     </div>
-    <div id="active-list">
-      <div class="student-card"><div class="student-name">Initializing...</div></div>
+
+    <div id="roles-grid">
+      <!-- Repair Tech -->
+      <div class="role-col repair">
+        <div class="role-header">
+          <span class="role-icon">🔧</span>
+          <div class="role-name">Repair Tech</div>
+          <div class="role-limit">Min. 2 · Primary</div>
+        </div>
+        <div class="role-students" id="students-repair"></div>
+      </div>
+
+      <!-- Intake Specialist -->
+      <div class="role-col intake">
+        <div class="role-header">
+          <span class="role-icon">📥</span>
+          <div class="role-name">Intake Specialist</div>
+          <div class="role-limit">Max. 2</div>
+        </div>
+        <div class="role-students" id="students-intake"></div>
+      </div>
+
+      <!-- QA Inspector -->
+      <div class="role-col qa">
+        <div class="role-header">
+          <span class="role-icon">🔍</span>
+          <div class="role-name">QA Inspector</div>
+          <div class="role-limit">Max. 2</div>
+        </div>
+        <div class="role-students" id="students-qa"></div>
+      </div>
+
+      <!-- Inventory & Parts -->
+      <div class="role-col inventory">
+        <div class="role-header">
+          <span class="role-icon">📦</span>
+          <div class="role-name">Inventory &amp; Parts</div>
+          <div class="role-limit">Max. 2</div>
+        </div>
+        <div class="role-students" id="students-inventory"></div>
+      </div>
     </div>
   </div>
 
+  <div id="state-msg"></div>
   <div id="clock"></div>
 
   <script>
     // ── Matrix Rain ──────────────────────────────
-    const canvas = document.getElementById('canvas');
-    const ctx    = canvas.getContext('2d');
+    var canvas = document.getElementById('canvas');
+    var ctx    = canvas.getContext('2d');
     function resizeCanvas() {
       canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -135,21 +264,21 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    const chars  = 'アァカサタナ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const fs     = 16;
-    let drops    = [];
+    var chars = 'アァカサタナ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    var fs    = 16;
+    var drops = [];
     function initDrops() {
       drops = Array(Math.floor(canvas.width / fs)).fill(1);
     }
     initDrops();
     window.addEventListener('resize', initDrops);
 
-    setInterval(() => {
+    setInterval(function() {
       ctx.fillStyle = 'rgba(0,0,0,0.05)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#0F0';
-      ctx.font      = fs + 'px monospace';
-      drops.forEach((y, i) => {
+      ctx.font = fs + 'px monospace';
+      drops.forEach(function(y, i) {
         ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * fs, y * fs);
         if (y * fs > canvas.height && Math.random() > 0.975) drops[i] = 0;
         drops[i]++;
@@ -157,52 +286,120 @@
     }, 33);
 
     // ── Clock ────────────────────────────────────
-    const clockEl = document.getElementById('clock');
+    var clockEl = document.getElementById('clock');
     function updateClock() {
       clockEl.textContent = new Date().toLocaleTimeString();
     }
     updateClock();
     setInterval(updateClock, 1000);
 
-    // ── Student Data ─────────────────────────────
-    function refresh() {
-      google.script.run
-        .withSuccessHandler(render)
-        .withFailureHandler(err => {
-          document.getElementById('active-list').innerHTML =
-            '<div class="closed-msg">SYSTEM ERROR: ' + err.message + '</div>';
-        })
-        .getScreensaverData();
+    // ── Role Assignment ───────────────────────────
+    //
+    // Fill order (by student arrival — slot index):
+    //   0 → Repair Tech       (min 2, takes precedence)
+    //   1 → Repair Tech
+    //   2 → Intake Specialist (fill every role before doubling up)
+    //   3 → QA Inspector
+    //   4 → Inventory & Parts
+    //   5 → Intake Specialist (2nd, up to max 2)
+    //   6 → QA Inspector      (2nd)
+    //   7 → Inventory & Parts (2nd)
+    //   8+ → Repair Tech      (overflow — no hard max)
+    //
+    var ROLE_SLOTS = [
+      'repair',
+      'repair',
+      'intake',
+      'qa',
+      'inventory',
+      'intake',
+      'qa',
+      'inventory'
+      // index 8+ handled as 'repair' in assignRoles()
+    ];
+
+    function assignRoles(students) {
+      var roles = { repair: [], intake: [], qa: [], inventory: [] };
+      students.forEach(function(student, i) {
+        var role = i < ROLE_SLOTS.length ? ROLE_SLOTS[i] : 'repair';
+        roles[role].push(student);
+      });
+      return roles;
+    }
+
+    // ── Render ───────────────────────────────────
+    function fmtTime(iso) {
+      var d = new Date(iso);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderRole(containerId, students, maxSlots) {
+      var el = document.getElementById(containerId);
+      var html = '';
+
+      students.forEach(function(s) {
+        html += '<div class="student-card">' +
+          '<div class="student-name">' + s.name + '</div>' +
+          '<div class="student-since">Since ' + fmtTime(s.since) + '</div>' +
+        '</div>';
+      });
+
+      // Show empty slots up to the max (only for capped roles)
+      if (maxSlots) {
+        var emptyCount = Math.max(0, maxSlots - students.length);
+        for (var i = 0; i < emptyCount; i++) {
+          html += '<div class="empty-slot">— OPEN —</div>';
+        }
+      }
+
+      el.innerHTML = html;
+    }
+
+    function showState(msg, type) {
+      var el = document.getElementById('state-msg');
+      el.innerHTML = '<div class="' + (type || 'empty-msg') + '">' + msg + '</div>';
+      el.style.display = 'block';
+      document.getElementById('roles-grid').style.opacity = '0.2';
+    }
+
+    function hideState() {
+      document.getElementById('state-msg').style.display = 'none';
+      document.getElementById('roles-grid').style.opacity = '1';
     }
 
     function render(data) {
-      const list        = document.getElementById('active-list');
-      const ticketCount = document.getElementById('ticket-count');
+      var ticketEl = document.getElementById('ticket-count');
+      ticketEl.textContent = (data && data.openTickets != null) ? data.openTickets : '—';
 
-      if (!data) { list.innerHTML = '<div class="closed-msg">NO DATA</div>'; return; }
-
-      ticketCount.textContent = data.openTickets != null ? data.openTickets : '—';
+      if (!data) { showState('NO DATA', 'closed-msg'); return; }
 
       if (data.status === 'CLOSED') {
-        list.innerHTML = '<div class="closed-msg">' + (data.message || 'LAB CLOSED') + '</div>';
+        showState(data.message || 'LAB CLOSED', 'closed-msg');
         return;
       }
 
       if (!data.students || data.students.length === 0) {
-        list.innerHTML = '<div class="empty-msg">NO ACTIVE TECHNICIANS</div>';
+        showState('NO ACTIVE TECHNICIANS', 'empty-msg');
         return;
       }
 
-      list.innerHTML = '';
-      data.students.forEach(s => {
-        const card = document.createElement('div');
-        card.className = 'student-card';
-        const since = new Date(s.since);
-        card.innerHTML =
-          '<div class="student-name">' + s.name + '</div>' +
-          '<div class="student-time">Since ' + since.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</div>';
-        list.appendChild(card);
-      });
+      hideState();
+
+      var roles = assignRoles(data.students);
+      renderRole('students-repair',    roles.repair,    null); // no max cap display
+      renderRole('students-intake',    roles.intake,    2);
+      renderRole('students-qa',        roles.qa,        2);
+      renderRole('students-inventory', roles.inventory, 2);
+    }
+
+    // ── Data Fetch ───────────────────────────────
+    function refresh() {
+      google.script.run
+        .withSuccessHandler(render)
+        .withFailureHandler(function(err) {
+          showState('SYSTEM ERROR: ' + err.message, 'closed-msg');
+        })
+        .getScreensaverData();
     }
 
     refresh();
