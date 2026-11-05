@@ -309,7 +309,7 @@
 
     /* Full-screen color burst on successful clock-in/out */
     #burst {
-      position: fixed; inset: 0; z-index: 15;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 15;
       pointer-events: none; opacity: 0;
       transition: opacity 0.15s ease-out;
     }
@@ -445,9 +445,31 @@
       // index 8+ → 'repair'
     ];
 
+    // Seed from today's date — same shuffle all day, fresh each new day.
+    // Uses a simple multiplicative hash that stays well within safe integer range.
+    function seededShuffle(arr) {
+      var today = new Date();
+      // Integer seed: e.g. 20261105
+      var seed  = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+      var copy  = arr.slice();
+
+      // Safe LCG — keep values < 2^31 using modulo so no overflow / NaN
+      function nextRand() {
+        seed = (seed * 48271 + 0) % 2147483647;
+        return seed;
+      }
+
+      for (var i = copy.length - 1; i > 0; i--) {
+        var j   = nextRand() % (i + 1);
+        var tmp = copy[i]; copy[i] = copy[j]; copy[j] = tmp;
+      }
+      return copy;
+    }
+
     function assignRoles(students) {
-      var roles = { repair: [], intake: [], qa: [], inventory: [] };
-      students.forEach(function(student, i) {
+      var roles    = { repair: [], intake: [], qa: [], inventory: [] };
+      var shuffled = seededShuffle(students);   // random but stable for the day
+      shuffled.forEach(function(student, i) {
         var role = i < ROLE_SLOTS.length ? ROLE_SLOTS[i] : 'repair';
         roles[role].push(student);
       });
