@@ -34,7 +34,7 @@
       flex-shrink: 0;
     }
     #header h1 {
-      font-size: clamp(1.4em, 3.5vw, 2.6em);
+      font-size: 2.2em;
       text-shadow: 0 0 12px #00ff00;
       background: rgba(0,0,0,0.75);
       display: inline-block;
@@ -45,7 +45,7 @@
     }
     #ticket-banner {
       margin-top: 8px;
-      font-size: clamp(0.75em, 1.5vw, 1.1em);
+      font-size: 1em;
       color: #ffff00;
       text-shadow: 0 0 8px #aaaa00;
       letter-spacing: 2px;
@@ -91,10 +91,10 @@
     .role-col.qa        .role-header { background: rgba(255,204,0,0.08);  border-color: rgba(255,204,0,0.3);  }
     .role-col.inventory .role-header { background: rgba(200,100,255,0.08);border-color: rgba(200,100,255,0.3);}
 
-    .role-icon { font-size: clamp(1.4em, 2.5vw, 2em); display: block; margin-bottom: 4px; }
+    .role-icon { font-size: 1.8em; display: block; margin-bottom: 4px; }
 
     .role-name {
-      font-size: clamp(0.6em, 1.2vw, 0.85em);
+      font-size: 0.8em;
       letter-spacing: 2px;
       text-transform: uppercase;
       font-weight: bold;
@@ -134,7 +134,7 @@
     .role-col.inventory .student-card { border-color: rgba(200,100,255,0.25);}
 
     .student-name {
-      font-size: clamp(0.75em, 1.4vw, 1.05em);
+      font-size: 1em;
       font-weight: bold;
       color: #ffffff;
       text-transform: uppercase;
@@ -172,17 +172,17 @@
     }
     .closed-msg {
       color: #ff4444;
-      font-size: clamp(1.2em, 3vw, 2em);
+      font-size: 1.8em;
       border: 2px solid #ff4444;
       padding: 20px 40px;
       background: rgba(20,0,0,0.9);
       letter-spacing: 4px;
     }
     .empty-msg {
-      color: rgba(0,255,0,0.5);
-      font-size: clamp(1em, 2vw, 1.5em);
+      color: rgba(0,255,0,0.7);
+      font-size: 1.3em;
       letter-spacing: 3px;
-      border: 1px dashed rgba(0,255,0,0.2);
+      border: 1px dashed rgba(0,255,0,0.4);
       padding: 20px 40px;
       background: rgba(0,0,0,0.7);
     }
@@ -215,7 +215,7 @@
     }
 
     #kiosk-label {
-      font-size: clamp(0.65em, 1.2vw, 0.85em);
+      font-size: 0.8em;
       letter-spacing: 3px;
       color: rgba(0, 243, 255, 0.6);
       text-transform: uppercase;
@@ -232,7 +232,7 @@
       border-radius: 6px;
       color: #fff;
       font-family: 'Courier New', monospace;
-      font-size: clamp(1em, 2vw, 1.3em);
+      font-size: 1.2em;
       letter-spacing: 4px;
       text-align: center;
       outline: none;
@@ -253,7 +253,7 @@
       padding: 12px 22px;
       border-radius: 6px;
       font-family: 'Courier New', monospace;
-      font-size: clamp(0.7em, 1.2vw, 0.9em);
+      font-size: 0.85em;
       font-weight: bold;
       letter-spacing: 2px;
       text-transform: uppercase;
@@ -285,7 +285,7 @@
     .kiosk-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     #kiosk-status {
-      font-size: clamp(0.65em, 1.2vw, 0.85em);
+      font-size: 0.8em;
       letter-spacing: 2px;
       min-width: 240px;
       padding: 8px 14px;
@@ -407,7 +407,9 @@
     var fs    = 16;
     var drops = [];
     function initDrops() {
-      drops = Array(Math.floor(canvas.width / fs)).fill(1);
+      drops = [];
+      var cols = Math.floor(canvas.width / fs);
+      for (var d = 0; d < cols; d++) { drops.push(1); }
     }
     initDrops();
     window.addEventListener('resize', initDrops);
@@ -437,6 +439,7 @@
     // ═══════════════════════════════════════════════════════════
     // ROLE ASSIGNMENT
     // Slot order: Repair, Repair, Intake, QA, Inventory, Intake, QA, Inventory, Repair…
+    // Roles are randomised on each page load; stable across the 15-second polls.
     // ═══════════════════════════════════════════════════════════
     var ROLE_SLOTS = [
       'repair', 'repair',
@@ -445,34 +448,23 @@
       // index 8+ → 'repair'
     ];
 
-    // Seed from today's date — same shuffle all day, fresh each new day.
-    // Uses a simple multiplicative hash that stays well within safe integer range.
-    function seededShuffle(arr) {
-      var today = new Date();
-      // Integer seed: e.g. 20261105
-      var seed  = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-      var copy  = arr.slice();
-
-      // Safe LCG — keep values < 2^31 using modulo so no overflow / NaN
-      function nextRand() {
-        seed = (seed * 48271 + 0) % 2147483647;
-        return seed;
-      }
-
-      for (var i = copy.length - 1; i > 0; i--) {
-        var j   = nextRand() % (i + 1);
-        var tmp = copy[i]; copy[i] = copy[j]; copy[j] = tmp;
-      }
-      return copy;
-    }
+    // Shuffle order is fixed for this page session (randomised each page load/reboot).
+    // We store it by student name so new arrivals get appended without reshuffling existing staff.
+    var roleMap = {};  // { studentName: role }
 
     function assignRoles(students) {
-      var roles    = { repair: [], intake: [], qa: [], inventory: [] };
-      var shuffled = seededShuffle(students);   // random but stable for the day
-      shuffled.forEach(function(student, i) {
-        var role = i < ROLE_SLOTS.length ? ROLE_SLOTS[i] : 'repair';
-        roles[role].push(student);
+      var roles = { repair: [], intake: [], qa: [], inventory: [] };
+
+      // Assign roles to students we haven't seen yet this session
+      students.forEach(function(s) {
+        if (!roleMap[s.name]) {
+          // Count how many students have been assigned so far to pick the next slot
+          var slotIdx = Object.keys(roleMap).length;
+          roleMap[s.name] = slotIdx < ROLE_SLOTS.length ? ROLE_SLOTS[slotIdx] : 'repair';
+        }
+        roles[roleMap[s.name]].push(s);
       });
+
       return roles;
     }
 
@@ -529,14 +521,21 @@
     }
 
     function refresh() {
+      // Guard: catch case where google.script.run is unavailable
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        showState('NOT DEPLOYED: Open via Apps Script Web App URL', 'closed-msg');
+        return;
+      }
       google.script.run
         .withSuccessHandler(render)
         .withFailureHandler(function(err) {
-          showState('SYSTEM ERROR: ' + err.message, 'closed-msg');
+          showState('BACKEND ERROR: ' + err.message, 'closed-msg');
         })
         .getScreensaverData();
     }
 
+    // Show a visible loading state immediately on page load
+    showState('LOADING...', 'empty-msg');
     refresh();
     setInterval(refresh, 15000);
 
