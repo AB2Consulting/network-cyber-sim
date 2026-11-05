@@ -438,33 +438,37 @@
 
     // ═══════════════════════════════════════════════════════════
     // ROLE ASSIGNMENT
-    // Slot order: Repair, Repair, Intake, QA, Inventory, Intake, QA, Inventory, Repair…
-    // Roles are randomised on each page load; stable across the 15-second polls.
+    // Slot types are shuffled ONCE at page load using Math.random().
+    // Roles are then stable for the whole session (Pi reboot = new shuffle).
+    // roleMap persists assignments so a student keeps their role
+    // even as new students clock in mid-session.
     // ═══════════════════════════════════════════════════════════
-    var ROLE_SLOTS = [
-      'repair', 'repair',
-      'intake', 'qa', 'inventory',
-      'intake', 'qa', 'inventory'
-      // index 8+ → 'repair'
-    ];
 
-    // Shuffle order is fixed for this page session (randomised each page load/reboot).
-    // We store it by student name so new arrivals get appended without reshuffling existing staff.
-    var roleMap = {};  // { studentName: role }
+    // Shuffle the slot order once at page load — simple Fisher-Yates, Math.random() only
+    var ROLE_SLOTS_SESSION = ['repair', 'repair', 'intake', 'qa', 'inventory', 'intake', 'qa', 'inventory'];
+    (function() {
+      for (var i = ROLE_SLOTS_SESSION.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = ROLE_SLOTS_SESSION[i];
+        ROLE_SLOTS_SESSION[i] = ROLE_SLOTS_SESSION[j];
+        ROLE_SLOTS_SESSION[j] = tmp;
+      }
+    })();
+
+    // Persistent name → role map for this page session
+    var roleMap = {};
 
     function assignRoles(students) {
       var roles = { repair: [], intake: [], qa: [], inventory: [] };
-
-      // Assign roles to students we haven't seen yet this session
       students.forEach(function(s) {
         if (!roleMap[s.name]) {
-          // Count how many students have been assigned so far to pick the next slot
           var slotIdx = Object.keys(roleMap).length;
-          roleMap[s.name] = slotIdx < ROLE_SLOTS.length ? ROLE_SLOTS[slotIdx] : 'repair';
+          roleMap[s.name] = slotIdx < ROLE_SLOTS_SESSION.length
+            ? ROLE_SLOTS_SESSION[slotIdx]
+            : 'repair';
         }
         roles[roleMap[s.name]].push(s);
       });
-
       return roles;
     }
 
