@@ -438,37 +438,119 @@
 
     // ═══════════════════════════════════════════════════════════
     // ROLE ASSIGNMENT
-    // Slot types are shuffled ONCE at page load using Math.random().
-    // Roles are then stable for the whole session (Pi reboot = new shuffle).
-    // roleMap persists assignments so a student keeps their role
-    // even as new students clock in mid-session.
+    // - Dynamic, balanced random role distribution
+    // - Stable while student is clocked in (doesn't jump on 15s refresh)
+    // - Automatically resets on day rollover (new calendar day = fresh roles)
+    // - Automatically resets when students clock out / lab empties (new period = fresh roles)
+    // - Shuffles unassigned students first to eliminate alphabetical bias
     // ═══════════════════════════════════════════════════════════
-
-    // Shuffle the slot order once at page load — simple Fisher-Yates, Math.random() only
-    var ROLE_SLOTS_SESSION = ['repair', 'repair', 'intake', 'qa', 'inventory', 'intake', 'qa', 'inventory'];
-    (function() {
-      for (var i = ROLE_SLOTS_SESSION.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        var tmp = ROLE_SLOTS_SESSION[i];
-        ROLE_SLOTS_SESSION[i] = ROLE_SLOTS_SESSION[j];
-        ROLE_SLOTS_SESSION[j] = tmp;
-      }
-    })();
-
-    // Persistent name → role map for this page session
     var roleMap = {};
+    var currentDay = new Date().toDateString();
+
+    var MAX_CAPS = {
+      repair:    999, // unlimited
+      intake:    2,
+      qa:        2,
+      inventory: 2
+    };
+
+    var ROLE_NAMES = ['repair', 'intake', 'qa', 'inventory'];
 
     function assignRoles(students) {
+      // 1. Daily Auto-Reset: If calendar date changed, clear roleMap so new day starts completely fresh
+      var today = new Date().toDateString();
+      if (currentDay !== today) {
+        currentDay = today;
+        roleMap = {};
+      }
+
+      // 2. Prune students who clocked out: frees up their station slot
+      var activeNames = {};
+      for (var a = 0; a < students.length; a++) {
+        activeNames[students[a].name] = true;
+      }
+      for (var name in roleMap) {
+        if (roleMap.hasOwnProperty(name) && !activeNames[name]) {
+          delete roleMap[name];
+        }
+      }
+
+      // 3. Find newly clocked-in students who need an assignment
+      var unassigned = [];
+      for (var i = 0; i < students.length; i++) {
+        var sName = students[i].name;
+        if (!roleMap[sName]) {
+          unassigned.push(sName);
+        }
+      }
+
+      // 4. Shuffle unassigned students (Fisher-Yates) to eliminate alphabetical bias from backend sort
+      for (var u = unassigned.length - 1; u > 0; u--) {
+        var j = Math.floor(Math.random() * (u + 1));
+        var tmp = unassigned[u];
+        unassigned[u] = unassigned[j];
+        unassigned[j] = tmp;
+      }
+
+      // 5. Count currently occupied roles
+      var counts = { repair: 0, intake: 0, qa: 0, inventory: 0 };
+      for (var m in roleMap) {
+        if (roleMap.hasOwnProperty(m)) {
+          var r = roleMap[m];
+          if (counts[r] !== undefined) counts[r]++;
+        }
+      }
+
+      // 6. Assign each unassigned student dynamically and randomly
+      for (var k = 0; k < unassigned.length; k++) {
+        var studentName = unassigned[k];
+
+        // Priority A: Fill any role that currently has 0 technicians
+        var zeroRoles = [];
+        for (var rIdx = 0; rIdx < ROLE_NAMES.length; rIdx++) {
+          var rName = ROLE_NAMES[rIdx];
+          if (counts[rName] === 0 && counts[rName] < MAX_CAPS[rName]) {
+            zeroRoles.push(rName);
+          }
+        }
+
+        var pickedRole;
+        if (zeroRoles.length > 0) {
+          pickedRole = zeroRoles[Math.floor(Math.random() * zeroRoles.length)];
+        } else {
+          // Priority B: Pick randomly among available roles with the lowest headcount
+          var minCount = 999;
+          for (var rIdx = 0; rIdx < ROLE_NAMES.length; rIdx++) {
+            var rName = ROLE_NAMES[rIdx];
+            if (counts[rName] < MAX_CAPS[rName]) {
+              if (counts[rName] < minCount) minCount = counts[rName];
+            }
+          }
+          var eligible = [];
+          for (var rIdx = 0; rIdx < ROLE_NAMES.length; rIdx++) {
+            var rName = ROLE_NAMES[rIdx];
+            if (counts[rName] < MAX_CAPS[rName] && counts[rName] === minCount) {
+              eligible.push(rName);
+            }
+          }
+          pickedRole = eligible[Math.floor(Math.random() * eligible.length)];
+        }
+
+        roleMap[studentName] = pickedRole;
+        counts[pickedRole]++;
+      }
+
+      // 7. Group active students into their assigned roles
       var roles = { repair: [], intake: [], qa: [], inventory: [] };
       students.forEach(function(s) {
-        if (!roleMap[s.name]) {
-          var slotIdx = Object.keys(roleMap).length;
-          roleMap[s.name] = slotIdx < ROLE_SLOTS_SESSION.length
-            ? ROLE_SLOTS_SESSION[slotIdx]
-            : 'repair';
+        var assigned = roleMap[s.name] || 'repair';
+        if (roles[assigned]) {
+          roles[assigned].push(s);
+        } else {
+          roles.repair.push(s);
         }
-        roles[roleMap[s.name]].push(s);
       });
+
       return roles;
     }
 
@@ -513,8 +595,16 @@
       ticketEl.textContent = (data && data.openTickets != null) ? data.openTickets : '—';
 
       if (!data) { showState('NO DATA', 'closed-msg'); return; }
-      if (data.status === 'CLOSED') { showState(data.message || 'LAB CLOSED', 'closed-msg'); return; }
-      if (!data.students || data.students.length === 0) { showState('NO ACTIVE TECHNICIANS', 'empty-msg'); return; }
+      if (data.status === 'CLOSED') {
+        roleMap = {}; // Reset assignments when lab is closed
+        showState(data.message || 'LAB CLOSED', 'closed-msg');
+        return;
+      }
+      if (!data.students || data.students.length === 0) {
+        roleMap = {}; // Reset assignments when lab has no active technicians
+        showState('NO ACTIVE TECHNICIANS', 'empty-msg');
+        return;
+      }
 
       hideState();
       var roles = assignRoles(data.students);
